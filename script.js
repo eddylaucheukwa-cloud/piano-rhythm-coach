@@ -35,6 +35,8 @@ const stopPracticeButton =
 const practiceStatus = document.getElementById("practiceStatus");
 const practiceScore = document.getElementById("practiceScore");
 const practiceResults = document.getElementById("practiceResults");
+const timingChart = document.getElementById("timingChart");
+const timingChartContext = timingChart.getContext("2d");
 
 let isPracticeRunning = false;
 let expectedEvents = [];
@@ -459,6 +461,7 @@ startPracticeMetronome();
 
   practiceResults.innerHTML = "";
   practiceScore.textContent = "Accuracy: 0%";
+  drawTimingChart();
   practiceStatus.textContent =
     `4-beat count-in, then play ${totalNotes.value} events at ` +
     `${bpm} BPM (${subdivision} notes per beat).`;
@@ -514,7 +517,163 @@ stopRecording();
   notesPerBeat.disabled = false;
   totalNotes.disabled = false;
 }
+function drawTimingChart() {
+  const canvas = timingChart;
+  const ctx = timingChartContext;
 
+  const width = canvas.width;
+  const height = canvas.height;
+
+  const padding = {
+    top: 20,
+    right: 16,
+    bottom: 32,
+    left: 48
+  };
+
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+
+  const visibleEvents = expectedEvents.filter(
+    (event) => event.result !== null
+  );
+
+  const maxOffset = Math.max(
+    timingWindowMs,
+    ...visibleEvents
+      .filter((event) => event.offsetMs !== null)
+      .map((event) => Math.abs(event.offsetMs))
+  );
+
+  const yLimit = Math.max(200, Math.ceil(maxOffset / 50) * 50);
+  const yToCanvas = (value) =>
+    padding.top + ((yLimit - value) / (yLimit * 2)) * chartHeight;
+
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.font = "11px Arial";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+
+  const gridValues = [-yLimit, -yLimit / 2, 0, yLimit / 2, yLimit];
+
+  for (const value of gridValues) {
+    const y = yToCanvas(value);
+
+    ctx.beginPath();
+    ctx.strokeStyle = value === 0 ? "#64748b" : "#e2e8f0";
+    ctx.lineWidth = value === 0 ? 1.5 : 1;
+    ctx.setLineDash(value === 0 ? [4, 4] : []);
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
+    ctx.stroke();
+
+    ctx.fillStyle = "#64748b";
+    ctx.fillText(`${value} ms`, padding.left - 6, y);
+  }
+
+  ctx.setLineDash([]);
+
+  if (visibleEvents.length === 0) {
+    ctx.fillStyle = "#64748b";
+    ctx.font = "13px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(
+      "Play a note to see timing data",
+      width / 2,
+      height / 2
+    );
+    return;
+  }
+
+  const xForIndex = (index) => {
+    if (visibleEvents.length === 1) {
+      return padding.left + chartWidth / 2;
+    }
+
+    return (
+      padding.left +
+      (index / (visibleEvents.length - 1)) * chartWidth
+    );
+  };
+
+  const matchedEvents = visibleEvents.filter(
+    (event) => event.offsetMs !== null
+  );
+
+  if (matchedEvents.length > 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = 2;
+
+    let started = false;
+
+    visibleEvents.forEach((event, index) => {
+      if (event.offsetMs === null) {
+        started = false;
+        return;
+      }
+
+      const x = xForIndex(index);
+      const y = yToCanvas(event.offsetMs);
+
+      if (!started) {
+        ctx.moveTo(x, y);
+        started = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+
+    ctx.stroke();
+  }
+
+  visibleEvents.forEach((event, index) => {
+    const x = xForIndex(index);
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#64748b";
+    ctx.font = "11px Arial";
+    ctx.fillText(`E${event.number}`, x, height - padding.bottom + 9);
+
+    if (event.result === "Missed") {
+      const y = yToCanvas(0);
+
+      ctx.strokeStyle = "#64748b";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x - 5, y - 5);
+      ctx.lineTo(x + 5, y + 5);
+      ctx.moveTo(x + 5, y - 5);
+      ctx.lineTo(x - 5, y + 5);
+      ctx.stroke();
+      return;
+    }
+
+    if (event.offsetMs === null) {
+      return;
+    }
+
+    const y = yToCanvas(event.offsetMs);
+
+    const pointColor =
+      event.result === "On Beat"
+        ? "#22c55e"
+        : event.result === "Early"
+          ? "#f59e0b"
+          : "#ef4444";
+
+    ctx.beginPath();
+    ctx.fillStyle = pointColor;
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
 function updatePracticeDisplay() {
   const now = performance.now();
   const toleranceMs = timingWindowMs;
@@ -571,6 +730,7 @@ function updatePracticeDisplay() {
   if (isPracticeRunning) {
   practiceResults.scrollTop = practiceResults.scrollHeight;
 }
+drawTimingChart();
 }
 function flashNoteLight(volume) {
   noteLight.classList.add("active");
