@@ -345,8 +345,8 @@ function checkForPianoSound() {
     flashNoteLight(volume);
 
     if (isPracticeRunning) {
-  matchSoundToExpectedEvent(lastOnsetTime);
-}
+      matchSoundToExpectedEvent(lastOnsetTime);
+    }
   }
 
   previousPreviousFlux = previousFlux;
@@ -377,44 +377,22 @@ function matchSoundToExpectedEvent(soundTime) {
   }
 
   if (!closestEvent) {
-  const remainingEvents = expectedEvents.filter(
-    (event) => event.detectedTime === null
-  );
-
-  if (remainingEvents.length > 0) {
-    const nearestEvent = remainingEvents.reduce(
-      (closest, event) =>
-        Math.abs(soundTime - event.time) <
-        Math.abs(soundTime - closest.time)
-          ? event
-          : closest
-    );
-
-    const offsetMs = soundTime - nearestEvent.time;
-    const direction = offsetMs < 0 ? "too early" : "too late";
-
     practiceStatus.textContent =
-      `Sound was ${Math.abs(offsetMs).toFixed(0)} ms ${direction} ` +
-      `for Event ${nearestEvent.number}.`;
-  } else {
-    practiceStatus.textContent =
-      "All practice events are already complete.";
+      "Piano sound detected, but it was outside the timing window.";
+    return;
   }
-
-  return;
-}
 
   closestEvent.detectedTime = soundTime;
   closestEvent.offsetMs = soundTime - closestEvent.time;
-  const onBeatRangeMs = Math.min(140, timingWindowMs * 0.7);
+  const onBeatRangeMs = Math.min(120, timingWindowMs * 0.6);
 
-if (closestEvent.offsetMs < -onBeatRangeMs) {
-  closestEvent.result = "Early";
-} else if (closestEvent.offsetMs > onBeatRangeMs) {
-  closestEvent.result = "Late";
-} else {
-  closestEvent.result = "On Beat";
-}
+  if (closestEvent.offsetMs < -onBeatRangeMs) {
+    closestEvent.result = "Early";
+  } else if (closestEvent.offsetMs > onBeatRangeMs) {
+    closestEvent.result = "Late";
+  } else {
+    closestEvent.result = "On Beat";
+  }
 
   practiceStatus.textContent =
     `Matched Event ${closestEvent.number}: ` +
@@ -452,8 +430,8 @@ minimumGapMs = Math.max(
 );
 
 timingWindowMs = Math.max(
-  180,
-  Math.min(noteIntervalMs * 0.48, 280)
+  100,
+  Math.min(noteIntervalMs * 0.35, 220)
 );
 
   isPracticeRunning = true;
