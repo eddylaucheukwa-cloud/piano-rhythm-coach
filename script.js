@@ -46,6 +46,7 @@ let previousVolume = 0;
 let onsetThreshold = 8;
 let minimumGapMs = 75;
 let timingWindowMs = 220;
+let inputLatencyMs = 140;
 
 
 const fluxThresholdFloor = 350;
@@ -345,8 +346,9 @@ function checkForPianoSound() {
     flashNoteLight(volume);
 
     if (isPracticeRunning) {
-  matchSoundToExpectedEvent(lastOnsetTime);
-}
+      const correctedSoundTime = lastOnsetTime - inputLatencyMs;
+      matchSoundToExpectedEvent(correctedSoundTime);
+    }
   }
 
   previousPreviousFlux = previousFlux;
@@ -360,45 +362,53 @@ function checkForPianoSound() {
 function matchSoundToExpectedEvent(soundTime) {
   const toleranceMs = timingWindowMs;
 
-  const nextEvent = expectedEvents.find(
-    (event) => event.detectedTime === null && event.result === null
-  );
+  let closestEvent = null;
+  let smallestDifference = Infinity;
 
-  if (!nextEvent) {
+  for (const event of expectedEvents) {
+    if (event.detectedTime !== null) {
+      continue;
+    }
+
+    const difference = Math.abs(soundTime - event.time);
+
+    if (difference <= toleranceMs && difference < smallestDifference) {
+      closestEvent = event;
+      smallestDifference = difference;
+    }
+  }
+
+  if (!closestEvent) {
     practiceStatus.textContent =
-      "All practice events are already complete.";
+      "Piano sound detected, but it was outside the timing window.";
     return;
   }
 
-  const offsetMs = soundTime - nextEvent.time;
+  closestEvent.detectedTime = soundTime;
+  closestEvent.offsetMs = soundTime - closestEvent.time;
+  const onBeatRangeMs = Math.min(140, timingWindowMs * 0.7);
 
-  if (Math.abs(offsetMs) > toleranceMs) {
-    const direction = offsetMs < 0 ? "too early" : "too late";
-
-    practiceStatus.textContent =
-      `Sound was ${Math.abs(offsetMs).toFixed(0)} ms ${direction} ` +
-      `for Event ${nextEvent.number}.`;
-
-    return;
-  }
-
-  nextEvent.detectedTime = soundTime;
-  nextEvent.offsetMs = offsetMs;
-
-  const onBeatRangeMs = Math.min(80, timingWindowMs * 0.6);
-
-  if (offsetMs < -onBeatRangeMs) {
-    nextEvent.result = "Early";
-  } else if (offsetMs > onBeatRangeMs) {
-    nextEvent.result = "Late";
-  } else {
-    nextEvent.result = "On Beat";
-  }
+if (closestEvent.offsetMs < -onBeatRangeMs) {
+  closestEvent.result = "Early";
+} else if (closestEvent.offsetMs > onBeatRangeMs) {
+  closestEvent.result = "Late";
+} else {
+  closestEvent.result = "On Beat";
+}
 
   practiceStatus.textContent =
-    `Matched Event ${nextEvent.number}: ${offsetMs.toFixed(0)} ms`;
+    `Matched Event ${closestEvent.number}: ` +
+    `${closestEvent.offsetMs.toFixed(0)} ms`;
 
   updatePracticeDisplay();
+}
+
+function startPracticeMetronome() {
+  const bpm = Number(bpmSlider.value);
+  const intervalMs = 60000 / bpm;
+
+  beat();
+  practiceTimer = setInterval(beat, intervalMs);
 }
 
 function stopPracticeMetronome() {
@@ -422,8 +432,8 @@ minimumGapMs = Math.max(
 );
 
 timingWindowMs = Math.max(
-  100,
-  Math.min(noteIntervalMs * 0.32, 160)
+  150,
+  Math.min(noteIntervalMs * 0.45, 280)
 );
 
   isPracticeRunning = true;
