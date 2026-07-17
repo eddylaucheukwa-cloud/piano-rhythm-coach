@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Piano Rhythm Coach</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <main class="container">
+    <h1>Piano Rhythm Coach</h1>
+    <p>練習跟節拍彈音階</p>
+
+    <section class="controls">
+      <label for="bpm">
+        BPM: <span id="bpmValue">60</span>
+      </label>
+
+      <input id="bpm" type="range" min="40" max="180" value="60">
+
+      <button id="startButton">Start</button>
+      <button id="stopButton" disabled>Stop</button>
+    </section>
+
+    <div id="beatLight" class="beat-light"></div>
+    <p id="status">Ready</p>
+    <section class="microphone-section">
+  <h2>Microphone Test</h2>
+
+  <button id="micButton">Allow Microphone</button>
+
+  <div class="volume-track">
+    <div id="volumeBar" class="volume-bar"></div>
+  </div>
+
+  <p id="micStatus">Microphone not connected</p>
+  <div class="sensitivity-control">
+  <label for="onsetThresholdSlider">
+    Piano sensitivity:
+    <span id="onsetThresholdValue">8</span>
+  </label>
+
+  <input
+    id="onsetThresholdSlider"
+    type="range"
+    min="1"
+    max="30"
+    step="0.5"
+    value="8"
+  >
+
+  <p class="sensitivity-hint">
+    Lower = detects softer sounds; higher = ignores more background noise
+  </p>
+</div>
+<div class="detection-indicator">
+  <div id="noteLight" class="note-light"></div>
+  <span id="detectionText">No piano sound detected</span>
+</div>
+
+<section class="practice-section">
+  <h2>Scale Rhythm Practice</h2>
+
+  <label for="notesPerBeat">
+    Notes per beat
+  </label>
+
+  <select id="notesPerBeat">
+    <option value="1">1 note per beat</option>
+    <option value="2" selected>2 notes per beat</option>
+    <option value="4">4 notes per beat</option>
+  </select>
+
+  <label for="totalNotes">
+    Total scale events
+  </label>
+
+  <input id="totalNotes" type="number" min="1" max="100" value="15">
+
+  <p class="practice-hint">
+    Two octaves, hands together: use 15 events
+  </p>
+
+  <button id="startPracticeButton" disabled>Start Practice</button>
+  <button id="stopPracticeButton" disabled>Stop Practice</button>
+
+  <p id="practiceStatus">Connect microphone first</p>
+  <p id="practiceScore">Accuracy: --</p>
+
+  <div id="practiceResults" class="practice-results"></div>
+</section>
+
+    <div class="recording-controls">
+  <button id="recordButton" disabled>Start Recording</button>
+  <button id="stopRecordButton" disabled>Stop Recording</button>
+</div>
+
+<audio id="recordedAudio" controls></audio>
+<p id="recordStatus">Connect microphone first</p>
+
+</section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
