@@ -45,9 +45,13 @@ let previousVolume = 0;
 
 let onsetThreshold = 8;
 let minimumGapMs = 75;
+let timingWindowMs = 220;
 
-const fluxThreshold = 900;
-const peakRatio = 1.35;
+
+const fluxThresholdFloor = 350;
+const fluxMultiplier = 2.2;
+const peakRatio = 1.2;
+const fluxHistorySize = 24;
 
 onsetThresholdSlider.addEventListener("input", () => {
   onsetThreshold = Number(onsetThresholdSlider.value);
@@ -65,6 +69,8 @@ let previousFlux = 0;
 let previousPreviousFlux = 0;
 let pendingPeakFlux = 0;
 let pendingPeakTime = 0;
+let fluxHistory = [];
+let dynamicFluxThreshold = 0;
 
 async function startMicrophone() {
   try {
@@ -307,17 +313,29 @@ function checkForPianoSound() {
   const flux = getSpectralFlux();
   const now = performance.now();
 
+  fluxHistory.push(flux);
+
+  if (fluxHistory.length > fluxHistorySize) {
+    fluxHistory.shift();
+  }
+
+  const averageFlux =
+    fluxHistory.reduce((sum, value) => sum + value, 0) /
+    fluxHistory.length;
+
+  dynamicFluxThreshold = Math.max(
+    fluxThresholdFloor,
+    averageFlux * fluxMultiplier
+  );
+
   const isLocalPeak =
     previousFlux > previousPreviousFlux &&
     previousFlux >= flux;
 
-  const passesThreshold =
-    previousFlux > fluxThreshold &&
-    previousFlux > previousPreviousFlux * peakRatio;
-
   const isNewOnset =
     isLocalPeak &&
-    passesThreshold &&
+    previousFlux > dynamicFluxThreshold &&
+    previousFlux > previousPreviousFlux * peakRatio &&
     volume > onsetThreshold &&
     now - lastOnsetTime > minimumGapMs;
 
@@ -340,7 +358,7 @@ function checkForPianoSound() {
 }
 
 function matchSoundToExpectedEvent(soundTime) {
-  const toleranceMs = 350;
+  const toleranceMs = timingWindowMs;
 
   let closestEvent = null;
   let smallestDifference = Infinity;
@@ -366,14 +384,15 @@ function matchSoundToExpectedEvent(soundTime) {
 
   closestEvent.detectedTime = soundTime;
   closestEvent.offsetMs = soundTime - closestEvent.time;
+  const onBeatRangeMs = Math.min(120, timingWindowMs * 0.6);
 
-  if (closestEvent.offsetMs < -200) {
-    closestEvent.result = "Early";
-  } else if (closestEvent.offsetMs > 200) {
-    closestEvent.result = "Late";
-  } else {
-    closestEvent.result = "On Beat";
-  }
+if (closestEvent.offsetMs < -onBeatRangeMs) {
+  closestEvent.result = "Early";
+} else if (closestEvent.offsetMs > onBeatRangeMs) {
+  closestEvent.result = "Late";
+} else {
+  closestEvent.result = "On Beat";
+}
 
   practiceStatus.textContent =
     `Matched Event ${closestEvent.number}: ` +
@@ -410,6 +429,11 @@ minimumGapMs = Math.max(
   Math.min(noteIntervalMs * 0.3, 140)
 );
 
+timingWindowMs = Math.max(
+  100,
+  Math.min(noteIntervalMs * 0.35, 220)
+);
+
   isPracticeRunning = true;
   lastOnsetTime = 0;
   previousVolume = 0;
@@ -419,6 +443,8 @@ minimumGapMs = Math.max(
   pendingPeakTime = 0;
 
   previousFrequencyData.fill(0);
+  fluxHistory = [];
+  dynamicFluxThreshold = 0;
   practiceStartTime = performance.now();
 
   createExpectedEvents();
@@ -449,7 +475,7 @@ stopPracticeMetronome();
 stopRecording();
 
   const now = performance.now();
-  const toleranceMs = 130;
+  const toleranceMs = timingWindowMs;
 
   for (const event of expectedEvents) {
     if (
@@ -491,7 +517,7 @@ stopRecording();
 
 function updatePracticeDisplay() {
   const now = performance.now();
-  const toleranceMs = 130;
+  const toleranceMs = timingWindowMs;
 
   for (const event of expectedEvents) {
     if (
