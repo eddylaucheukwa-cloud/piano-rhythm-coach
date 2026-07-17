@@ -46,7 +46,6 @@ let previousVolume = 0;
 let onsetThreshold = 8;
 let minimumGapMs = 75;
 let timingWindowMs = 220;
-let inputLatencyMs = 140;
 
 
 const fluxThresholdFloor = 350;
@@ -346,9 +345,8 @@ function checkForPianoSound() {
     flashNoteLight(volume);
 
     if (isPracticeRunning) {
-      const correctedSoundTime = lastOnsetTime - inputLatencyMs;
-      matchSoundToExpectedEvent(correctedSoundTime);
-    }
+  matchSoundToExpectedEvent(lastOnsetTime);
+}
   }
 
   previousPreviousFlux = previousFlux;
@@ -379,10 +377,32 @@ function matchSoundToExpectedEvent(soundTime) {
   }
 
   if (!closestEvent) {
+  const remainingEvents = expectedEvents.filter(
+    (event) => event.detectedTime === null
+  );
+
+  if (remainingEvents.length > 0) {
+    const nearestEvent = remainingEvents.reduce(
+      (closest, event) =>
+        Math.abs(soundTime - event.time) <
+        Math.abs(soundTime - closest.time)
+          ? event
+          : closest
+    );
+
+    const offsetMs = soundTime - nearestEvent.time;
+    const direction = offsetMs < 0 ? "too early" : "too late";
+
     practiceStatus.textContent =
-      "Piano sound detected, but it was outside the timing window.";
-    return;
+      `Sound was ${Math.abs(offsetMs).toFixed(0)} ms ${direction} ` +
+      `for Event ${nearestEvent.number}.`;
+  } else {
+    practiceStatus.textContent =
+      "All practice events are already complete.";
   }
+
+  return;
+}
 
   closestEvent.detectedTime = soundTime;
   closestEvent.offsetMs = soundTime - closestEvent.time;
@@ -432,8 +452,8 @@ minimumGapMs = Math.max(
 );
 
 timingWindowMs = Math.max(
-  150,
-  Math.min(noteIntervalMs * 0.45, 280)
+  180,
+  Math.min(noteIntervalMs * 0.48, 280)
 );
 
   isPracticeRunning = true;
