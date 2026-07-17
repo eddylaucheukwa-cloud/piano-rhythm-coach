@@ -46,6 +46,7 @@ let previousVolume = 0;
 let onsetThreshold = 8;
 let minimumGapMs = 75;
 let timingWindowMs = 220;
+let inputLatencyMs = 140;
 
 
 const fluxThresholdFloor = 350;
@@ -345,7 +346,8 @@ function checkForPianoSound() {
     flashNoteLight(volume);
 
     if (isPracticeRunning) {
-      matchSoundToExpectedEvent(lastOnsetTime);
+      const correctedSoundTime = lastOnsetTime - inputLatencyMs;
+      matchSoundToExpectedEvent(correctedSoundTime);
     }
   }
 
@@ -384,7 +386,7 @@ function matchSoundToExpectedEvent(soundTime) {
 
   closestEvent.detectedTime = soundTime;
   closestEvent.offsetMs = soundTime - closestEvent.time;
-  const onBeatRangeMs = Math.min(120, timingWindowMs * 0.6);
+  const onBeatRangeMs = Math.min(140, timingWindowMs * 0.7);
 
 if (closestEvent.offsetMs < -onBeatRangeMs) {
   closestEvent.result = "Early";
@@ -430,8 +432,8 @@ minimumGapMs = Math.max(
 );
 
 timingWindowMs = Math.max(
-  100,
-  Math.min(noteIntervalMs * 0.35, 220)
+  150,
+  Math.min(noteIntervalMs * 0.45, 280)
 );
 
   isPracticeRunning = true;
