@@ -45,7 +45,9 @@ let previousVolume = 0;
 
 let onsetThreshold = 8;
 let minimumGapMs = 75;
-const volumeRiseThreshold = 1.5;
+
+const fluxThreshold = 900;
+const peakRatio = 1.35;
 
 onsetThresholdSlider.addEventListener("input", () => {
   onsetThreshold = Number(onsetThresholdSlider.value);
@@ -57,6 +59,12 @@ let audioChunks = [];
 let microphoneStream = null;
 let analyser = null;
 let audioData = null;
+let frequencyData = null;
+let previousFrequencyData = null;
+let previousFlux = 0;
+let previousPreviousFlux = 0;
+let pendingPeakFlux = 0;
+let pendingPeakTime = 0;
 
 async function startMicrophone() {
   try {
@@ -78,9 +86,12 @@ async function startMicrophone() {
       audioContext.createMediaStreamSource(microphoneStream);
 
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 1024;
+    analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0;
+
     audioData = new Uint8Array(analyser.fftSize);
+    frequencyData = new Uint8Array(analyser.frequencyBinCount);
+    previousFrequencyData = new Uint8Array(analyser.frequencyBinCount);
 
     microphoneSource.connect(analyser);
 
@@ -251,6 +262,23 @@ function getCurrentVolume() {
 
   return Math.sqrt(total / audioData.length);
 }
+function getSpectralFlux() {
+  analyser.getByteFrequencyData(frequencyData);
+
+  let flux = 0;
+
+  for (let i = 2; i < frequencyData.length; i++) {
+    const increase = frequencyData[i] - previousFrequencyData[i];
+
+    if (increase > 0) {
+      flux += increase;
+    }
+  }
+
+  previousFrequencyData.set(frequencyData);
+
+  return flux;
+}
 
 function createExpectedEvents() {
   const bpm = Number(bpmSlider.value);
@@ -276,24 +304,37 @@ function createExpectedEvents() {
 
 function checkForPianoSound() {
   const volume = getCurrentVolume();
+  const flux = getSpectralFlux();
   const now = performance.now();
 
-  const isNewSound =
+  const isLocalPeak =
+    previousFlux > previousPreviousFlux &&
+    previousFlux >= flux;
+
+  const passesThreshold =
+    previousFlux > fluxThreshold &&
+    previousFlux > previousPreviousFlux * peakRatio;
+
+  const isNewOnset =
+    isLocalPeak &&
+    passesThreshold &&
     volume > onsetThreshold &&
-    volume - previousVolume > volumeRiseThreshold &&
     now - lastOnsetTime > minimumGapMs;
 
-  if (isNewSound) {
-    lastOnsetTime = now;
+  if (isNewOnset) {
+    lastOnsetTime = pendingPeakTime || now;
 
     flashNoteLight(volume);
 
     if (isPracticeRunning) {
-      matchSoundToExpectedEvent(now);
+      matchSoundToExpectedEvent(lastOnsetTime);
     }
   }
 
-  previousVolume = volume;
+  previousPreviousFlux = previousFlux;
+  previousFlux = flux;
+  pendingPeakFlux = flux;
+  pendingPeakTime = now;
 
   requestAnimationFrame(checkForPianoSound);
 }
@@ -362,10 +403,22 @@ function startPractice() {
 
   const bpm = Number(bpmSlider.value);
   const subdivision = Number(notesPerBeat.value);
+  const noteIntervalMs = 60000 / bpm / subdivision;
+
+minimumGapMs = Math.max(
+  40,
+  Math.min(noteIntervalMs * 0.3, 140)
+);
 
   isPracticeRunning = true;
   lastOnsetTime = 0;
   previousVolume = 0;
+  previousFlux = 0;
+  previousPreviousFlux = 0;
+  pendingPeakFlux = 0;
+  pendingPeakTime = 0;
+
+  previousFrequencyData.fill(0);
   practiceStartTime = performance.now();
 
   createExpectedEvents();
