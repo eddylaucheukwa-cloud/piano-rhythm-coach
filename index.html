@@ -90,7 +90,25 @@
   <p id="practiceStatus">Connect microphone first</p>
   <p id="practiceScore">Accuracy: --</p>
 
-  <div id="practiceResults" class="practice-results"></div>
+<div class="timing-chart-section">
+  <p class="timing-chart-title">Timing accuracy</p>
+
+  <canvas
+    id="timingChart"
+    width="380"
+    height="220"
+    aria-label="Real-time timing accuracy chart"
+  ></canvas>
+
+  <div class="timing-chart-legend">
+    <span><i class="legend-dot on-beat-dot"></i> On Beat</span>
+    <span><i class="legend-dot early-dot"></i> Early</span>
+    <span><i class="legend-dot late-dot"></i> Late</span>
+    <span><i class="legend-cross">×</i> Missed</span>
+  </div>
+</div>
+
+<div id="practiceResults" class="practice-results"></div>
 </section>
 
     <div class="recording-controls">
