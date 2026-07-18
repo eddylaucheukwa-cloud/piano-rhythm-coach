@@ -376,19 +376,53 @@ function checkForPianoSound() {
 }
 
 function matchSoundToExpectedEvent(soundTime) {
-  const nextEvent = expectedEvents.find(
-    (event) => event.detectedTime === null
+  let nextEvent = expectedEvents.find(
+    (event) => event.detectedTime === null &&
+      event.result === null
   );
 
+  /*
+    如果現在已超過某個 event 的可接受時間，
+    先將它標記為 Missed，然後繼續找下一粒。
+    否則一旦漏掉第一粒，整個 sequence 就會卡住。
+  */
+  while (
+    nextEvent &&
+    soundTime > nextEvent.time + timingWindowMs
+  ) {
+    nextEvent.result = "Missed";
+
+    nextEvent = expectedEvents.find(
+      (event) => event.detectedTime === null &&
+        event.result === null
+    );
+  }
+
   if (!nextEvent) {
+    updatePracticeDisplay();
     return;
   }
 
   const difference = soundTime - nextEvent.time;
 
-  if (Math.abs(difference) > timingWindowMs) {
+  /*
+    太早的聲音通常是上一粒音的泛音／殘響，
+    或是 count-in 前的聲音；忽略它，
+    但不要將下一個真正 event 標示為 Missed。
+  */
+  if (difference < -timingWindowMs) {
     practiceStatus.textContent =
-      "Onset ignored: outside next timing window.";
+      "Onset ignored: too early for next event.";
+    return;
+  }
+
+  /*
+    理論上 while 已處理過太遲情況；
+    保留這一層，避免極端 timing 狀況。
+  */
+  if (difference > timingWindowMs) {
+    practiceStatus.textContent =
+      "Onset ignored: too late for next event.";
     return;
   }
 
@@ -439,18 +473,15 @@ function startPractice() {
   const noteIntervalMs = 60000 / bpm / subdivision;
   const safetyGapMs = 18;
 
-  minimumGapMs = Math.max(
-    28,
-    Math.min(noteIntervalMs * 0.18, 70)
-  );
+ minimumGapMs = Math.max(
+  45,
+  Math.min(noteIntervalMs * 0.22, 90)
+);
 
-  timingWindowMs = Math.max(
-    45,
-    Math.min(
-      noteIntervalMs * 0.32,
-      noteIntervalMs / 2 - safetyGapMs
-    )
-  );
+timingWindowMs = Math.max(
+  80,
+  Math.min(noteIntervalMs * 0.38, 220)
+);
 
   isPracticeRunning = true;
   lastOnsetTime = 0;
