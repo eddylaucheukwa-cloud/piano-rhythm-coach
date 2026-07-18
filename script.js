@@ -270,13 +270,29 @@ function getCurrentVolume() {
 
   return Math.sqrt(total / audioData.length);
 }
+const pianoMinHz = 60;
+const pianoMaxHz = 4200;
 function getSpectralFlux() {
   analyser.getByteFrequencyData(frequencyData);
 
+  const nyquistHz = audioContext.sampleRate / 2;
+  const binHz = nyquistHz / frequencyData.length;
+
+  const startBin = Math.max(
+    2,
+    Math.floor(pianoMinHz / binHz)
+  );
+
+  const endBin = Math.min(
+    frequencyData.length - 1,
+    Math.ceil(pianoMaxHz / binHz)
+  );
+
   let flux = 0;
 
-  for (let i = 2; i < frequencyData.length; i++) {
-    const increase = frequencyData[i] - previousFrequencyData[i];
+  for (let i = startBin; i <= endBin; i++) {
+    const increase =
+      frequencyData[i] - previousFrequencyData[i];
 
     if (increase > 0) {
       flux += increase;
