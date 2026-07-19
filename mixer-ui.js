@@ -278,41 +278,34 @@ function tempoHaptic() {
 
   const distance = Math.abs(currentStep - lastTempoHapticStep);
 
-  // 快速轉動跨過多格時，使用雙脈衝，像轉盤卡點
+  // 快速轉動：較強的雙卡點，像夾萬轉盤
   if (distance >= 3) {
-    haptic([8, 18, 8]);
+    haptic([18, 22, 18]);
   } else {
-    haptic(10);
+    // 慢慢扭：每格有清晰一下卡點
+    haptic(16);
   }
 
   lastTempoHapticStep = currentStep;
 }
-
-/* ---------- NOTES：每一個 note 一格 ---------- */
-
-let lastNotesHapticValue = Number(totalNotes.value);
 
 function notesHaptic() {
   const currentValue = Number(totalNotes.value);
 
   if (currentValue === lastNotesHapticValue) return;
 
-  haptic(7);
+  // 每一個 note：清晰但短的一下
+  haptic(14);
   lastNotesHapticValue = currentValue;
 }
-
-/* ---------- SENSITIVITY：每 1 級一格 ---------- */
-
-let lastSensitivityHapticStep = Math.round(
-  Number(onsetThresholdSlider.value)
-);
 
 function sensitivityHaptic() {
   const currentStep = Math.round(Number(onsetThresholdSlider.value));
 
   if (currentStep === lastSensitivityHapticStep) return;
 
-  haptic(6);
+  // 每一級 sensitivity：明顯卡點
+  haptic(12);
   lastSensitivityHapticStep = currentStep;
 }
 
