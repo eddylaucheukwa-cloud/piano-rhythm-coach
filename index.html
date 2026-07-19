@@ -1,127 +1,82 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-HK">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Piano Rhythm Coach</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Piano Rhythm Coach</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-  <main class="container">
-    <h1>Piano Rhythm Coach 1.0</h1>
-    <p>練習跟節拍彈音階</p>
-
-    <section class="controls">
-      <label for="bpm">
-        BPM: <span id="bpmValue">60</span>
-      </label>
-
-      <input id="bpm" type="range" min="40" max="180" value="60">
-
-      <button id="startButton">Start</button>
-      <button id="stopButton" disabled>Stop</button>
-    </section>
-
-    <div id="beatLight" class="beat-light"></div>
-    <p id="status">Ready</p>
-    <section class="microphone-section">
-  <h2>Microphone Test</h2>
-
-  <button id="micButton">Allow Microphone</button>
-
-  <div class="volume-track">
-    <div id="volumeBar" class="volume-bar"></div>
-  </div>
-
-  <p id="micStatus">Microphone not connected</p>
-  <div class="sensitivity-control">
-  <label for="onsetThresholdSlider">
-    Piano sensitivity:
-    <span id="onsetThresholdValue">8</span>
-  </label>
-
-  <input
-    id="onsetThresholdSlider"
-    type="range"
-    min="1"
-    max="30"
-    step="0.5"
-    value="8"
-  >
-
-  <p class="sensitivity-hint">
-    Lower = detects softer sounds; higher = ignores more background noise
-  </p>
-</div>
-
-  
-<div class="detection-indicator">
-  <div id="noteLight" class="note-light"></div>
-  <span id="detectionText">No piano sound detected</span>
-</div>
-
-<section class="practice-section">
-  <h2>Scale Rhythm Practice</h2>
-
-  <label for="notesPerBeat">
-    Notes per beat
-  </label>
-
-  <select id="notesPerBeat">
-    <option value="1">1 note per beat</option>
-    <option value="2" selected>2 notes per beat</option>
-    <option value="4">4 notes per beat</option>
-  </select>
-
-  <label for="totalNotes">
-    Total scale events
-  </label>
-
-  <input id="totalNotes" type="number" min="1" max="100" value="15">
-
-  <p class="practice-hint">
-    Two octaves, hands together: use 15 events
-  </p>
-
-  <button id="startPracticeButton" disabled>Start Practice</button>
-  <button id="stopPracticeButton" disabled>Stop Practice</button>
-
-  <p id="practiceStatus">Connect microphone first</p>
-  <p id="practiceScore">Accuracy: --</p>
-
-<div class="timing-chart-section">
-  <p class="timing-chart-title">Timing accuracy</p>
-
-  <canvas
-    id="timingChart"
-    width="380"
-    height="220"
-    aria-label="Real-time timing accuracy chart"
-  ></canvas>
-
-  <div class="timing-chart-legend">
-    <span><i class="legend-dot on-beat-dot"></i> On Beat</span>
-    <span><i class="legend-dot early-dot"></i> Early</span>
-    <span><i class="legend-dot late-dot"></i> Late</span>
-    <span><i class="legend-cross">×</i> Missed</span>
-  </div>
-</div>
-
-<div id="practiceResults" class="practice-results"></div>
-</section>
-
-    <div class="recording-controls">
-  <button id="recordButton" disabled>Start Recording</button>
-  <button id="stopRecordButton" disabled>Stop Recording</button>
-</div>
-
-<audio id="recordedAudio" controls></audio>
-<p id="recordStatus">Connect microphone first</p>
-
-</section>
-  </main>
-
-  <script src="script.js"></script>
+    <main class="console">
+        <header class="title-lcd">PIANO RHYTHM COACH</header>
+        <section class="monitor-label"><span>MONITOR</span><span id="practiceScore">ACCURACY: --</span><i id="noteLight"
+                class="indicator" aria-label="Piano sound indicator"></i></section>
+                <section class="monitor">
+        <canvas id="timingChart" width="372" height="205"></canvas>
+        <output id="bpmMonitor" class="bpm-monitor">BPM 060</output>
+        </section>
+        <div class="monitor-foot"><span>EARLY</span><span>0 MS</span><span>LATE</span></div>
+        <section class="control-row">
+            <div class="tempo-zone">
+                <p>TEMPO</p>
+                <div class="volume-meter" aria-label="Detected volume">
+                    <div id="volumeBar"></div>
+                </div>
+                <div id="tempoKnob" class="tempo-knob" role="slider" tabindex="0" aria-label="Tempo, 60 BPM"
+                    aria-valuemin="40" aria-valuemax="180" aria-valuenow="60"><i id="knobNotch"></i></div>
+            </div>
+            <div class="sense-zone">
+                <p>SENSITIVITY</p>
+                <div class="fader"><button id="sensitivityHandle" type="button"
+                        aria-label="Sensitivity slider"></button></div>
+            </div>
+        </section>
+        <section class="readout-row">
+            <div class="readout rhythm">
+                <p>RHYTHM</p><output id="rhythmValue">02</output>
+                <div class="step-buttons"><button id="rhythmUp" type="button"
+                        aria-label="Increase rhythm">+</button><button id="rhythmDown" type="button"
+                        aria-label="Decrease rhythm">−</button></div>
+            </div>
+            <div class="readout notes">
+                <p>NOTES</p><output id="eventValue">15</output><button id="notesWheel" class="notes-wheel" type="button"
+                    aria-label="Notes control; swipe up to increase and down to decrease"><i></i><i></i><i></i><i></i></button>
+            </div>
+        </section>
+        <section class="transport">
+            <div>
+                <p>PLAYBACK</p><button id="playbackButton" class="hardware-key playback-key" type="button" disabled
+                    aria-label="Play latest recording"><i class="playback-icon"></i></button>
+            </div>
+            <div>
+                <p>START</p><button id="startPracticeButton" class="hardware-key start-key" type="button" disabled
+                    aria-label="Start practice"><i></i></button>
+            </div>
+            <div>
+                <p>STOP</p><button id="stopPracticeButton" class="hardware-key stop-key" type="button" disabled
+                    aria-label="Stop practice"><i></i></button>
+            </div>
+        </section>
+        <button id="micButton" class="mic-key" type="button">ALLOW MICROPHONE</button>
+        <p id="micStatus" class="sr">Microphone not connected</p>
+        <p id="practiceStatus" class="status">Connect microphone first</p>
+        <div id="practiceResults" class="results"></div>
+        <div class="legacy"><input id="bpm" type="range" min="40" max="180" value="60"><span id="bpmValue"></span><input
+                id="onsetThresholdSlider" type="range" min="1" max="30" step="0.5" value="8"><output
+                id="onsetThresholdValue">8.0</output><select id="notesPerBeat">
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+            </select><input id="totalNotes" type="number" min="1" max="100" value="15"><button id="recordButton"
+                type="button"></button><button id="stopRecordButton" type="button"></button><audio
+                id="recordedAudio"></audio><span id="recordStatus"></span><button id="startButton"></button><button
+                id="stopButton"></button><i id="beatLight"></i><span id="detectionText"></span></div>
+    </main>
+    <script src="script.js"></script>
+    <script src="mixer-ui.js"></script>
 </body>
+
 </html>
