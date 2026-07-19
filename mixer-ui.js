@@ -137,7 +137,7 @@ const baseSpeed =0.8;
   (MAX - MIN) / (360 * turnsFromMinToMax);
 
 // 快轉時的額外加速：保持小，避免一滑就越過目標。
-const acceleration = 0.018;
+const acceleration = 0.09;
 
 const direction = Math.sign(deltaAngle);
 const amountTurned = Math.abs(deltaAngle);
