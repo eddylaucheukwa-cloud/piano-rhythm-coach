@@ -144,7 +144,7 @@ const turnsFromMinToMax = 2;
 
 // 轉 1 圈時，基礎速度可改變的 BPM。
 // 140 = 180 - 40，360 = 一圈的角度。
-const baseSpeed =0.8;
+const baseSpeed =0.6;
   (MAX - MIN) / (360 * turnsFromMinToMax);
 
 // 快轉時的額外加速：保持小，避免一滑就越過目標。
