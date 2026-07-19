@@ -471,6 +471,7 @@ button {
   );
 
   box-shadow:
+  6px 7px 2px #848681,
   inset 2px 2px 5px rgba(255, 255, 255, 0.9),
   inset -4px -5px 8px rgba(91, 93, 89, 0.28);
 }
@@ -496,18 +497,13 @@ button {
   pointer-events: none;
   background: #d2d3cf;
 
-  /*
-    圓點中心：x = 100px、y = 24px
-    旋鈕中心：x = 100px、y = 100px
-    因此 transform-origin 是由圓點中心向下 76px
-  */
-  transform-origin: 11px 87px;
-
   box-shadow:
     inset 3px 3px 5px rgba(108, 110, 106, 0.35),
     inset -2px -2px 3px rgba(255, 255, 255, 0.82);
 
-  transition: none;
+  transition:
+  left 35ms linear,
+  top 35ms linear;
 }
 
 /* =========================
@@ -712,27 +708,3 @@ button {
   position: relative;
 }
 
-.tempo-zone::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-
-  width: 200px;
-  height: 200px;
-
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-
-  border-radius: 50%;
-  background: #d2d3cf;
-
-  box-shadow: 6px 7px 2px #848681;
-
-  pointer-events: none;
-}
-
-/* 真正會旋轉的旋鈕放在固定陰影圖層上方 */
-.tempo-knob {
-  z-index: 1;
-}
