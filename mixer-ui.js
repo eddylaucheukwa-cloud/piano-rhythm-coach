@@ -166,30 +166,49 @@ wheel.addEventListener("pointermove", (event) => {
   });
 });
 
-let faderStartY;
-let faderStartValue;
+// =========================
+// SENSITIVITY FADER
+// Mobile-friendly absolute drag
+// =========================
 
-fader.addEventListener("pointerdown", (event) => {
-  faderStartY = event.clientY;
-  faderStartValue = Number(onsetThresholdSlider.value);
-  fader.setPointerCapture(event.pointerId);
-});
+const sensitivityTrack = document.querySelector(".fader");
 
-fader.addEventListener("pointermove", (event) => {
-  if (faderStartY === undefined) return;
+function setSensitivityFromPointer(event) {
+  event.preventDefault();
 
-  onsetThresholdSlider.value = Math.max(
-    1,
-    Math.min(30, faderStartValue + (faderStartY - event.clientY) / 7)
-  );
+  const trackRect = sensitivityTrack.getBoundingClientRect();
 
+  // 手指在滑軌內的位置：上方是 1，下方是 0
+  let position = (event.clientY - trackRect.top) / trackRect.height;
+  position = Math.max(0, Math.min(1, position));
+
+  // 上推：threshold 增加；下拉：threshold 減少
+  const threshold = 30 - position * 29;
+
+  onsetThresholdSlider.value = threshold.toFixed(1);
   onsetThresholdSlider.dispatchEvent(new Event("input"));
+
   syncMixer();
+}
+
+function beginSensitivityDrag(event) {
+  event.preventDefault();
+
+  sensitivityTrack.setPointerCapture(event.pointerId);
+  setSensitivityFromPointer(event);
+}
+
+/* 可按黑色滑軌或銀色滑塊後直接拖動 */
+sensitivityTrack.addEventListener("pointerdown", beginSensitivityDrag);
+sensitivityTrack.addEventListener("pointermove", (event) => {
+  if (sensitivityTrack.hasPointerCapture(event.pointerId)) {
+    setSensitivityFromPointer(event);
+  }
 });
 
-["pointerup", "pointercancel"].forEach((eventName) => {
-  fader.addEventListener(eventName, () => {
-    faderStartY = undefined;
+["pointerup", "pointercancel", "lostpointercapture"].forEach((eventName) => {
+  sensitivityTrack.addEventListener(eventName, () => {
+    // Pointer capture 結束後不需再更新
   });
 });
 
