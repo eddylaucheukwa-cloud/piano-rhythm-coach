@@ -130,7 +130,7 @@ tempoKnob.addEventListener("pointermove", (event) => {
   if (deltaAngle < -180) deltaAngle += 360;
 
   // Clockwise increases BPM; counter-clockwise decreases BPM.
-  const bpmPerDegree = (MAX - MIN) / 90;
+  const bpmPerDegree = (MAX - MIN) / 270;
   setTempo(Number(bpmSlider.value) + deltaAngle * bpmPerDegree);
 
   lastTempoPointerAngle = currentAngle;
