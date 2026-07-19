@@ -130,7 +130,7 @@ tempoKnob.addEventListener("pointermove", (event) => {
   if (deltaAngle < -180) deltaAngle += 360;
 
   // Clockwise increases BPM; counter-clockwise decreases BPM.
-  const bpmPerDegree = (MAX - MIN) / 250;
+  const bpmPerDegree = (MAX - MIN) / 90;
   setTempo(Number(bpmSlider.value) + deltaAngle * bpmPerDegree);
 
   lastTempoPointerAngle = currentAngle;
@@ -282,22 +282,21 @@ function haptic(pattern) {
 
 /* ---------- TEMPO：夾萬轉盤卡點 ---------- */
 
-let lastTempoHapticStep = Math.round(Number(bpmSlider.value) / 2);
-
+let lastTempoHapticStep = Math.round(Number(bpmSlider.value) / 5);
 function tempoHaptic() {
   // 每 2 BPM 一格卡點
-  const currentStep = Math.round(Number(bpmSlider.value) / 4);
+  const currentStep = Math.round(Number(bpmSlider.value) / 5);
 
   if (currentStep === lastTempoHapticStep) return;
 
   const distance = Math.abs(currentStep - lastTempoHapticStep);
 
   // 快速轉動：較強的雙卡點，像夾萬轉盤
-  if (distance >= 3) {
-    haptic([18, 22, 18]);
+  if (distance >= 2) {
+    haptic([10, 14, 10]);
   } else {
     // 慢慢扭：每格有清晰一下卡點
-    haptic(16);
+    haptic(8);
   }
 
   lastTempoHapticStep = currentStep;
