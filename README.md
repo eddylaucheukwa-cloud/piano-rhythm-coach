@@ -1,2 +1,2 @@
 # piano-rhythm-coach
-A piano rhythm practice web app（
+A piano rhythm practice web app
