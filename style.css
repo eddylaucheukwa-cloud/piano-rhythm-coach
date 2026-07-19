@@ -481,6 +481,7 @@ button {
 
 /* 會跟隨 BPM 沿圓周移動的圓形定位點 */
 /* 固定於旋鈕面板上方；旋鈕本體旋轉時圓點會一起轉 */
+/* 圓點固定在上方，圍繞旋鈕中心累積轉動；底盤不轉 */
 .tempo-knob #knobNotch {
   position: absolute;
   z-index: 2;
@@ -494,6 +495,13 @@ button {
 
   pointer-events: none;
   background: #d2d3cf;
+
+  /*
+    圓點中心：x = 100px、y = 24px
+    旋鈕中心：x = 100px、y = 100px
+    因此 transform-origin 是由圓點中心向下 76px
+  */
+  transform-origin: 11px 87px;
 
   box-shadow:
     inset 3px 3px 5px rgba(108, 110, 106, 0.35),
