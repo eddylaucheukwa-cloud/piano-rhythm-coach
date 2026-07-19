@@ -252,3 +252,27 @@ totalNotes.addEventListener("input", syncMixer);
 onsetThresholdSlider.addEventListener("input", syncMixer);
 
 syncMixer();
+
+// =========================
+// MOBILE BUTTON PRESS FEEDBACK
+// =========================
+
+const feedbackButtons = document.querySelectorAll(
+  ".hardware-key, .mic-key, .step-buttons button"
+);
+
+feedbackButtons.forEach((button) => {
+  button.addEventListener("pointerdown", () => {
+    if (!button.disabled) {
+      button.classList.add("is-pressed");
+    }
+  });
+
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(
+    (eventName) => {
+      button.addEventListener(eventName, () => {
+        button.classList.remove("is-pressed");
+      });
+    }
+  );
+});
