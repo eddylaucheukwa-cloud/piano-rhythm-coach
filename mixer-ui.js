@@ -250,7 +250,70 @@ bpmSlider.addEventListener("input", syncMixer);
 notesPerBeat.addEventListener("input", syncMixer);
 totalNotes.addEventListener("input", syncMixer);
 onsetThresholdSlider.addEventListener("input", syncMixer);
+// =========================
+// MOBILE HAPTIC FEEDBACK
+// =========================
 
+function haptic(pattern) {
+  if ("vibrate" in navigator) {
+    navigator.vibrate(pattern);
+  }
+}
+
+/* ---------- TEMPO：夾萬轉盤卡點 ---------- */
+
+let lastTempoHapticStep = Math.round(Number(bpmSlider.value) / 2);
+
+function tempoHaptic() {
+  // 每 2 BPM 一格卡點
+  const currentStep = Math.round(Number(bpmSlider.value) / 2);
+
+  if (currentStep === lastTempoHapticStep) return;
+
+  const distance = Math.abs(currentStep - lastTempoHapticStep);
+
+  // 快速轉動跨過多格時，使用雙脈衝，像轉盤卡點
+  if (distance >= 3) {
+    haptic([8, 18, 8]);
+  } else {
+    haptic(10);
+  }
+
+  lastTempoHapticStep = currentStep;
+}
+
+/* ---------- NOTES：每一個 note 一格 ---------- */
+
+let lastNotesHapticValue = Number(totalNotes.value);
+
+function notesHaptic() {
+  const currentValue = Number(totalNotes.value);
+
+  if (currentValue === lastNotesHapticValue) return;
+
+  haptic(7);
+  lastNotesHapticValue = currentValue;
+}
+
+/* ---------- SENSITIVITY：每 1 級一格 ---------- */
+
+let lastSensitivityHapticStep = Math.round(
+  Number(onsetThresholdSlider.value)
+);
+
+function sensitivityHaptic() {
+  const currentStep = Math.round(Number(onsetThresholdSlider.value));
+
+  if (currentStep === lastSensitivityHapticStep) return;
+
+  haptic(6);
+  lastSensitivityHapticStep = currentStep;
+}
+
+/* 將震動綁定到原本已有的 input 更新 */
+bpmSlider.addEventListener("input", tempoHaptic);
+totalNotes.addEventListener("input", notesHaptic);
+onsetThresholdSlider.addEventListener("input", sensitivityHaptic);
 syncMixer();
 
 // =========================
