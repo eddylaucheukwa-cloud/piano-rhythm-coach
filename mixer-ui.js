@@ -30,7 +30,17 @@ const knobRotation = ratio * 360 * visualTurns;
 
 /* 底盤與陰影不轉；只有圓形定位點累積轉 0–720 度 */
 tempoKnob.style.transform = "none";
-notch.style.transform = `rotate(${knobRotation}deg)`;
+
+/* 小圓沿圓周移動；自身不旋轉，所以光影方向固定 */
+const radians = (knobRotation * Math.PI) / 180;
+const radius = 76;
+
+const circleX = 100 + Math.sin(radians) * radius;
+const circleY = 100 - Math.cos(radians) * radius;
+
+notch.style.left = `${circleX - 11}px`;
+notch.style.top = `${circleY - 11}px`;
+notch.style.transform = "none";
   tempoKnob.setAttribute("aria-valuenow", bpm);
   tempoKnob.setAttribute("aria-label", `Tempo, ${bpm} BPM`);
 
