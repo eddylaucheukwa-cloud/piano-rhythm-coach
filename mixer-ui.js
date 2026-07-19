@@ -130,14 +130,24 @@ tempoKnob.addEventListener("pointermove", (event) => {
   if (deltaAngle < -180) deltaAngle += 360;
 
   // Clockwise increases BPM; counter-clockwise decreases BPM.
-  const baseSpeed = 0.9;
-const acceleration = 0.045;
+// 40 BPM 升到 180 BPM 約需要多少完整圈
+const turnsFromMinToMax = 2;
+
+// 轉 1 圈時，基礎速度可改變的 BPM。
+// 140 = 180 - 40，360 = 一圈的角度。
+const baseSpeed =
+  (MAX - MIN) / (360 * turnsFromMinToMax);
+
+// 快轉時的額外加速：保持小，避免一滑就越過目標。
+const acceleration = 0.018;
 
 const direction = Math.sign(deltaAngle);
+const amountTurned = Math.abs(deltaAngle);
+
 const curvedChange =
   direction *
-  (baseSpeed * Math.abs(deltaAngle) +
-    acceleration * Math.pow(Math.abs(deltaAngle), 2));
+  (baseSpeed * amountTurned +
+    acceleration * Math.pow(amountTurned, 2));
 
 setTempo(Number(bpmSlider.value) + curvedChange);
 
