@@ -407,11 +407,10 @@ button {
     white-space: nowrap !important
 }
 
-@media(max-width:411px) {
-    .console {
-        transform-origin: top center;
-        min-height: 100vh
-    }
+@media (max-width: 411px) {
+  .console {
+    transform-origin: top center;
+  }
 }
 .monitor {
   position: relative;
@@ -597,5 +596,32 @@ button {
 @keyframes wheel-down {
   50% {
     transform: translateY(5px);
+  }
+}
+
+/* 手機版：不顯示 Figma 以外的舊結果清單 */
+.status,
+.results {
+  display: none;
+}
+
+/* 面板保持固定的設計高度，不讓內容撐長 */
+.console {
+  height: 917px;
+  min-height: 917px;
+}
+
+/* 螢幕高度不足時，整個面板按比例縮小 */
+@media (max-height: 916px) {
+  body {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    align-items: start;
+  }
+
+  .console {
+    transform: scale(0.84);
+    transform-origin: top center;
   }
 }
