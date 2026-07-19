@@ -255,9 +255,15 @@ onsetThresholdSlider.addEventListener("input", syncMixer);
 // =========================
 
 function haptic(pattern) {
-  if ("vibrate" in navigator) {
-    navigator.vibrate(pattern);
+  const supportsVibrationAPI =
+    "vibrate" in navigator &&
+    typeof navigator.vibrate === "function";
+
+  if (!supportsVibrationAPI) {
+    return false;
   }
+
+  return navigator.vibrate(pattern);
 }
 
 /* ---------- TEMPO：夾萬轉盤卡點 ---------- */
@@ -337,5 +343,20 @@ feedbackButtons.forEach((button) => {
         button.classList.remove("is-pressed");
       });
     }
+  );
+});
+const supportsVibrationAPI =
+  "vibrate" in navigator &&
+  typeof navigator.vibrate === "function";
+
+console.log("Vibration API supported:", supportsVibrationAPI);
+
+document.getElementById("vibrationTest").addEventListener("click", () => {
+  const success = haptic([40, 60, 40]);
+
+  console.log(
+    success
+      ? "Browser accepted the vibration request"
+      : "Vibration API unavailable or request rejected"
   );
 });
