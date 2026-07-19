@@ -2,6 +2,7 @@ const rhythmValue = document.getElementById("rhythmValue");
 const eventValue = document.getElementById("eventValue");
 const tempoKnob = document.getElementById("tempoKnob");
 const notch = document.getElementById("knobNotch");
+const knobOrbit = document.getElementById("knobOrbit");
 const wheel = document.getElementById("notesWheel");
 const playback = document.getElementById("playbackButton");
 const audio = document.getElementById("recordedAudio");
@@ -24,23 +25,16 @@ function syncMixer() {
   const ratio = (bpm - MIN) / (MAX - MIN);
   const angle = START + ratio * (END - START);
 
-  // BPM 40–180 對應旋鈕視覺旋轉 0–720 度，即兩圈
+// 40 BPM 至 180 BPM：外層定位架由 0° 累積轉到 720°，即兩圈
 const visualTurns = 2;
 const knobRotation = ratio * 360 * visualTurns;
 
-/* 底盤與陰影不轉；只有圓形定位點累積轉 0–720 度 */
-tempoKnob.style.transform = "none";
-
-/* 小圓沿圓周移動；自身不旋轉，所以光影方向固定 */
-const radians = (knobRotation * Math.PI) / 180;
-const radius = 76;
-
-const circleX = 100 + Math.sin(radians) * radius;
-const circleY = 100 - Math.cos(radians) * radius;
-
-notch.style.left = `${circleX - 11}px`;
-notch.style.top = `${circleY - 11}px`;
-notch.style.transform = "none";
+/*
+  只有透明的 knobOrbit 繞旋鈕中心轉兩圈。
+  真正的小圓 knobNotch 不旋轉，因此陰影方向保持固定。
+*/
+knobOrbit.style.transform = `rotate(${knobRotation}deg)`;
+notch.style.transform = `rotate(${-knobRotation}deg)`;
   tempoKnob.setAttribute("aria-valuenow", bpm);
   tempoKnob.setAttribute("aria-label", `Tempo, ${bpm} BPM`);
 
@@ -144,11 +138,11 @@ const turnsFromMinToMax = 2;
 
 // 轉 1 圈時，基礎速度可改變的 BPM。
 // 140 = 180 - 40，360 = 一圈的角度。
-const baseSpeed =0.6;
+const baseSpeed =0.5;
   (MAX - MIN) / (360 * turnsFromMinToMax);
 
 // 快轉時的額外加速：保持小，避免一滑就越過目標。
-const acceleration = 0.0002;
+const acceleration = 0;
 
 const direction = Math.sign(deltaAngle);
 const amountTurned = Math.abs(deltaAngle);
