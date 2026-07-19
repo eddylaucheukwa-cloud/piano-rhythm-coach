@@ -645,3 +645,30 @@ button {
 .fader {
   cursor: ns-resize;
 }
+/* =========================
+   MOBILE COMPACT LAYOUT
+   只影響手機，不影響電腦
+   ========================= */
+
+@media (max-width: 600px) {
+  /* 標題更接近面板頂部：原本 44px，改為 18px */
+  .console {
+    padding-top: 18px;
+    padding-bottom: 28px;
+  }
+
+  /* 將 RHYTHM / NOTES 拉近大旋鈕底部 */
+  .readout-row {
+    margin-top: -40px;
+  }
+
+  /* 三個 transport 按鈕再向上靠近 */
+  .transport {
+    margin-top: 16px;
+  }
+
+  /* 麥克風按鈕向上靠近 transport 區 */
+  .mic-key {
+    margin-top: 16px;
+  }
+}
