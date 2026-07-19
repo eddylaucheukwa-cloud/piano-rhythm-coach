@@ -471,9 +471,8 @@ button {
   );
 
   box-shadow:
-    6px 7px 2px #848681,
-    inset 2px 2px 5px rgba(255, 255, 255, 0.9),
-    inset -4px -5px 8px rgba(91, 93, 89, 0.28);
+  inset 2px 2px 5px rgba(255, 255, 255, 0.9),
+  inset -4px -5px 8px rgba(91, 93, 89, 0.28);
 }
 
 .tempo-knob:active {
@@ -699,4 +698,33 @@ button {
 .step-buttons button {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+/* 固定投影：不隨旋鈕本體旋轉 */
+.tempo-zone {
+  position: relative;
+}
+
+.tempo-zone::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+
+  width: 200px;
+  height: 200px;
+
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+
+  border-radius: 50%;
+  background: #d2d3cf;
+
+  box-shadow: 6px 7px 2px #848681;
+
+  pointer-events: none;
+}
+
+/* 真正會旋轉的旋鈕放在固定陰影圖層上方 */
+.tempo-knob {
+  z-index: 1;
 }
