@@ -116,7 +116,7 @@ tempoKnob.addEventListener("pointermove", (event) => {
   if (deltaAngle < -180) deltaAngle += 360;
 
   // Clockwise increases BPM; counter-clockwise decreases BPM.
-  const bpmPerDegree = (MAX - MIN) / 270;
+  const bpmPerDegree = (MAX - MIN) / 150;
   setTempo(Number(bpmSlider.value) + deltaAngle * bpmPerDegree);
 
   lastTempoPointerAngle = currentAngle;
@@ -338,18 +338,4 @@ feedbackButtons.forEach((button) => {
     }
   );
 });
-const supportsVibrationAPI =
-  "vibrate" in navigator &&
-  typeof navigator.vibrate === "function";
 
-console.log("Vibration API supported:", supportsVibrationAPI);
-
-document.getElementById("vibrationTest").addEventListener("click", () => {
-  const success = haptic([40, 60, 40]);
-
-  console.log(
-    success
-      ? "Browser accepted the vibration request"
-      : "Vibration API unavailable or request rejected"
-  );
-});
