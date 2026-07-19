@@ -634,3 +634,14 @@ button {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* Sensitivity fader: 手機觸控專用 */
+.fader,
+.fader button {
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.fader {
+  cursor: ns-resize;
+}
