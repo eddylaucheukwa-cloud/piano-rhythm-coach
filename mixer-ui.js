@@ -28,8 +28,9 @@ function syncMixer() {
 const visualTurns = 2;
 const knobRotation = ratio * 360 * visualTurns;
 
-// 旋鈕本體與圓點一起旋轉
-tempoKnob.style.transform = `rotate(${knobRotation}deg)`;
+/* 底盤與陰影不轉；只有圓形定位點累積轉 0–720 度 */
+tempoKnob.style.transform = "none";
+notch.style.transform = `rotate(${knobRotation}deg)`;
   tempoKnob.setAttribute("aria-valuenow", bpm);
   tempoKnob.setAttribute("aria-label", `Tempo, ${bpm} BPM`);
 
@@ -137,7 +138,7 @@ const baseSpeed =0.8;
   (MAX - MIN) / (360 * turnsFromMinToMax);
 
 // 快轉時的額外加速：保持小，避免一滑就越過目標。
-const acceleration = 0.09;
+const acceleration = 0.045;
 
 const direction = Math.sign(deltaAngle);
 const amountTurned = Math.abs(deltaAngle);
