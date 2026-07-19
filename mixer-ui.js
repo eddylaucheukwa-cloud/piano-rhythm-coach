@@ -1,0 +1,235 @@
+const rhythmValue = document.getElementById("rhythmValue");
+const eventValue = document.getElementById("eventValue");
+const tempoKnob = document.getElementById("tempoKnob");
+const notch = document.getElementById("knobNotch");
+const wheel = document.getElementById("notesWheel");
+const playback = document.getElementById("playbackButton");
+const audio = document.getElementById("recordedAudio");
+const fader = document.getElementById("sensitivityHandle");
+const bpmMonitor = document.getElementById("bpmMonitor");
+
+const MIN = 40;
+const MAX = 180;
+const START = -135;
+const END = 135;
+
+function animateNumber(element, direction) {
+  element.classList.remove("roll-up", "roll-down");
+  void element.offsetWidth;
+  element.classList.add(direction > 0 ? "roll-up" : "roll-down");
+}
+
+function syncMixer() {
+  const bpm = Number(bpmSlider.value);
+  const ratio = (bpm - MIN) / (MAX - MIN);
+  const angle = START + ratio * (END - START);
+
+  const radians = (angle * Math.PI) / 180;
+const radius = 78;
+
+const circleX = 100 + Math.sin(radians) * radius;
+const circleY = 100 - Math.cos(radians) * radius;
+
+notch.style.left = `${circleX - 11}px`;
+notch.style.top = `${circleY - 11}px`;
+  tempoKnob.setAttribute("aria-valuenow", bpm);
+  tempoKnob.setAttribute("aria-label", `Tempo, ${bpm} BPM`);
+
+  if (bpmMonitor) {
+    bpmMonitor.textContent = `BPM ${String(bpm).padStart(3, "0")}`;
+  }
+
+  rhythmValue.textContent = String(notesPerBeat.value).padStart(2, "0");
+  eventValue.textContent = String(totalNotes.value).padStart(2, "0");
+
+  const threshold = Number(onsetThresholdSlider.value);
+  const top = 230 - ((threshold - 1) / 29) * 230;
+  fader.style.top = `${top}px`;
+}
+
+function setTempo(value) {
+  bpmSlider.value = Math.max(MIN, Math.min(MAX, Math.round(value)));
+  bpmSlider.dispatchEvent(new Event("input"));
+  syncMixer();
+}
+
+function changeRhythm(delta) {
+  const current = Number(notesPerBeat.value);
+  const next = Math.max(1, Math.min(4, current + delta));
+
+  if (next === current) return;
+
+  notesPerBeat.value = next;
+  notesPerBeat.dispatchEvent(new Event("input"));
+  animateNumber(rhythmValue, delta);
+  syncMixer();
+}
+
+function changeNotes(delta) {
+  const current = Number(totalNotes.value);
+  const next = Math.max(1, Math.min(100, current + delta));
+
+  if (next === current) return;
+
+  totalNotes.value = next;
+  totalNotes.dispatchEvent(new Event("input"));
+  animateNumber(eventValue, delta);
+
+  wheel.classList.remove("bump-up", "bump-down");
+  void wheel.offsetWidth;
+  wheel.classList.add(delta > 0 ? "bump-up" : "bump-down");
+  syncMixer();
+}
+
+document.getElementById("rhythmUp").addEventListener("click", () => {
+  changeRhythm(1);
+});
+
+document.getElementById("rhythmDown").addEventListener("click", () => {
+  changeRhythm(-1);
+});
+
+function getPointerAngle(event, element) {
+  const rect = element.getBoundingClientRect();
+  const x = event.clientX - (rect.left + rect.width / 2);
+  const y = event.clientY - (rect.top + rect.height / 2);
+  return Math.atan2(y, x) * (180 / Math.PI);
+}
+
+let tempoDragActive = false;
+let lastTempoPointerAngle = 0;
+
+tempoKnob.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  tempoDragActive = true;
+  lastTempoPointerAngle = getPointerAngle(event, tempoKnob);
+  tempoKnob.setPointerCapture(event.pointerId);
+});
+
+tempoKnob.addEventListener("pointermove", (event) => {
+  if (!tempoDragActive) return;
+
+  const currentAngle = getPointerAngle(event, tempoKnob);
+  let deltaAngle = currentAngle - lastTempoPointerAngle;
+
+  if (deltaAngle > 180) deltaAngle -= 360;
+  if (deltaAngle < -180) deltaAngle += 360;
+
+  // Clockwise increases BPM; counter-clockwise decreases BPM.
+  const bpmPerDegree = (MAX - MIN) / 270;
+  setTempo(Number(bpmSlider.value) + deltaAngle * bpmPerDegree);
+
+  lastTempoPointerAngle = currentAngle;
+});
+
+["pointerup", "pointercancel", "lostpointercapture"].forEach((eventName) => {
+  tempoKnob.addEventListener(eventName, () => {
+    tempoDragActive = false;
+  });
+});
+
+tempoKnob.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowUp" || event.key === "ArrowRight") {
+    event.preventDefault();
+    setTempo(Number(bpmSlider.value) + 1);
+  }
+
+  if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
+    event.preventDefault();
+    setTempo(Number(bpmSlider.value) - 1);
+  }
+});
+
+let wheelStartY;
+let wheelStartValue;
+
+wheel.addEventListener("pointerdown", (event) => {
+  wheelStartY = event.clientY;
+  wheelStartValue = Number(totalNotes.value);
+  wheel.setPointerCapture(event.pointerId);
+});
+
+wheel.addEventListener("pointermove", (event) => {
+  if (wheelStartY === undefined) return;
+
+  const next = Math.max(
+    1,
+    Math.min(100, wheelStartValue + Math.trunc((wheelStartY - event.clientY) / 16))
+  );
+
+  changeNotes(next - Number(totalNotes.value));
+});
+
+["pointerup", "pointercancel"].forEach((eventName) => {
+  wheel.addEventListener(eventName, () => {
+    wheelStartY = undefined;
+  });
+});
+
+let faderStartY;
+let faderStartValue;
+
+fader.addEventListener("pointerdown", (event) => {
+  faderStartY = event.clientY;
+  faderStartValue = Number(onsetThresholdSlider.value);
+  fader.setPointerCapture(event.pointerId);
+});
+
+fader.addEventListener("pointermove", (event) => {
+  if (faderStartY === undefined) return;
+
+  onsetThresholdSlider.value = Math.max(
+    1,
+    Math.min(30, faderStartValue + (faderStartY - event.clientY) / 7)
+  );
+
+  onsetThresholdSlider.dispatchEvent(new Event("input"));
+  syncMixer();
+});
+
+["pointerup", "pointercancel"].forEach((eventName) => {
+  fader.addEventListener(eventName, () => {
+    faderStartY = undefined;
+  });
+});
+
+playback.addEventListener("click", () => {
+  if (!audio.src) return;
+
+  if (audio.paused) {
+    audio.play();
+  } else {
+    audio.pause();
+  }
+});
+
+audio.addEventListener("play", () => {
+  playback.classList.add("playing");
+});
+
+["pause", "ended"].forEach((eventName) => {
+  audio.addEventListener(eventName, () => {
+    playback.classList.remove("playing");
+  });
+});
+
+startPracticeButton.addEventListener("click", () => {
+  playback.disabled = true;
+  audio.pause();
+  audio.removeAttribute("src");
+});
+
+stopPracticeButton.addEventListener("click", () => {
+  setTimeout(() => {
+    if (audio.src) {
+      playback.disabled = false;
+    }
+  }, 400);
+});
+
+bpmSlider.addEventListener("input", syncMixer);
+notesPerBeat.addEventListener("input", syncMixer);
+totalNotes.addEventListener("input", syncMixer);
+onsetThresholdSlider.addEventListener("input", syncMixer);
+
+syncMixer();
