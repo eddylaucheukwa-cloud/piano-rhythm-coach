@@ -24,14 +24,12 @@ function syncMixer() {
   const ratio = (bpm - MIN) / (MAX - MIN);
   const angle = START + ratio * (END - START);
 
-  const radians = (angle * Math.PI) / 180;
-const radius = 78;
+  // BPM 40–180 對應旋鈕視覺旋轉 0–720 度，即兩圈
+const visualTurns = 2;
+const knobRotation = ratio * 360 * visualTurns;
 
-const circleX = 100 + Math.sin(radians) * radius;
-const circleY = 100 - Math.cos(radians) * radius;
-
-notch.style.left = `${circleX - 11}px`;
-notch.style.top = `${circleY - 11}px`;
+// 旋鈕本體與圓點一起旋轉
+tempoKnob.style.transform = `rotate(${knobRotation}deg)`;
   tempoKnob.setAttribute("aria-valuenow", bpm);
   tempoKnob.setAttribute("aria-label", `Tempo, ${bpm} BPM`);
 
@@ -135,7 +133,7 @@ const turnsFromMinToMax = 2;
 
 // 轉 1 圈時，基礎速度可改變的 BPM。
 // 140 = 180 - 40，360 = 一圈的角度。
-const baseSpeed =
+const baseSpeed =0.8;
   (MAX - MIN) / (360 * turnsFromMinToMax);
 
 // 快轉時的額外加速：保持小，避免一滑就越過目標。
