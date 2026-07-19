@@ -116,7 +116,7 @@ tempoKnob.addEventListener("pointermove", (event) => {
   if (deltaAngle < -180) deltaAngle += 360;
 
   // Clockwise increases BPM; counter-clockwise decreases BPM.
-  const bpmPerDegree = (MAX - MIN) / 150;
+  const bpmPerDegree = (MAX - MIN) / 240;
   setTempo(Number(bpmSlider.value) + deltaAngle * bpmPerDegree);
 
   lastTempoPointerAngle = currentAngle;
@@ -288,14 +288,18 @@ function tempoHaptic() {
 
   lastTempoHapticStep = currentStep;
 }
+let lastNotesHapticValue = Number(totalNotes.value);
 
+let lastSensitivityHapticStep = Math.round(
+  Number(onsetThresholdSlider.value)
+);
 function notesHaptic() {
   const currentValue = Number(totalNotes.value);
 
   if (currentValue === lastNotesHapticValue) return;
 
   // 每一個 note：清晰但短的一下
-  haptic(14);
+  haptic(20);
   lastNotesHapticValue = currentValue;
 }
 
