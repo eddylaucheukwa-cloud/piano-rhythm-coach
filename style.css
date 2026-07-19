@@ -625,3 +625,12 @@ button {
     transform-origin: top center;
   }
 }
+/* 手機：Sensitivity 滑桿必須完全接收上下拖動 */
+.fader,
+.fader button,
+.notes-wheel,
+.tempo-knob {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
