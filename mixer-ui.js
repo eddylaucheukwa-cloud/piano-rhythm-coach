@@ -64,7 +64,20 @@ function changeRhythm(delta) {
   animateNumber(rhythmValue, delta);
   syncMixer();
 }
+// NOTES wheel：限制震動頻率，避免連續移動時互相中斷
+let lastNotesHapticTime = 0;
 
+function notesHapticFeedback() {
+  const now = Date.now();
+
+  // 最少相隔 80ms；快速滑動時仍有明顯卡點，不會震動互相取消
+  if (now - lastNotesHapticTime < 80) {
+    return;
+  }
+
+  haptic(25);
+  lastNotesHapticTime = now;
+}
 function changeNotes(delta) {
   const current = Number(totalNotes.value);
   const next = Math.max(1, Math.min(100, current + delta));
@@ -73,7 +86,8 @@ function changeNotes(delta) {
 
   totalNotes.value = next;
   totalNotes.dispatchEvent(new Event("input"));
-  animateNumber(eventValue, delta);
+notesHapticFeedback();
+animateNumber(eventValue, delta);
 
   wheel.classList.remove("bump-up", "bump-down");
   void wheel.offsetWidth;
@@ -116,7 +130,7 @@ tempoKnob.addEventListener("pointermove", (event) => {
   if (deltaAngle < -180) deltaAngle += 360;
 
   // Clockwise increases BPM; counter-clockwise decreases BPM.
-  const bpmPerDegree = (MAX - MIN) / 240;
+  const bpmPerDegree = (MAX - MIN) / 250;
   setTempo(Number(bpmSlider.value) + deltaAngle * bpmPerDegree);
 
   lastTempoPointerAngle = currentAngle;
@@ -272,7 +286,7 @@ let lastTempoHapticStep = Math.round(Number(bpmSlider.value) / 2);
 
 function tempoHaptic() {
   // 每 2 BPM 一格卡點
-  const currentStep = Math.round(Number(bpmSlider.value) / 2);
+  const currentStep = Math.round(Number(bpmSlider.value) / 4);
 
   if (currentStep === lastTempoHapticStep) return;
 
@@ -288,20 +302,10 @@ function tempoHaptic() {
 
   lastTempoHapticStep = currentStep;
 }
-let lastNotesHapticValue = Number(totalNotes.value);
 
 let lastSensitivityHapticStep = Math.round(
   Number(onsetThresholdSlider.value)
 );
-function notesHaptic() {
-  const currentValue = Number(totalNotes.value);
-
-  if (currentValue === lastNotesHapticValue) return;
-
-  // 每一個 note：清晰但短的一下
-  haptic(20);
-  lastNotesHapticValue = currentValue;
-}
 
 function sensitivityHaptic() {
   const currentStep = Math.round(Number(onsetThresholdSlider.value));
@@ -315,7 +319,6 @@ function sensitivityHaptic() {
 
 /* 將震動綁定到原本已有的 input 更新 */
 bpmSlider.addEventListener("input", tempoHaptic);
-totalNotes.addEventListener("input", notesHaptic);
 onsetThresholdSlider.addEventListener("input", sensitivityHaptic);
 syncMixer();
 
