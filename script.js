@@ -24,7 +24,7 @@ let calibrationMonitorFrame = null;
 const CALIBRATION_BPM = 60;
 const CALIBRATION_NOTE_COUNT = 15;
 const CALIBRATION_COUNT_IN_BEATS = 4;
-const CALIBRATION_WINDOW_MS = 1000;
+const CALIBRATION_WINDOW_MS = 300;
 const MIN_VALID_CALIBRATION_NOTES = Math.ceil(
   CALIBRATION_NOTE_COUNT * 0.6
 );
@@ -1473,314 +1473,159 @@ stopRecording();
 function drawTimingChart() {
   const canvas = timingChart;
   const ctx = timingChartContext;
+
   const width = canvas.width;
   const height = canvas.height;
 
-  const colors = {
-    green: "#72ff9a",
-    greenDim: "rgba(114, 255, 154, 0.58)",
-    greenGrid: "rgba(114, 255, 154, 0.10)",
-    greenLine: "rgba(114, 255, 154, 0.70)",
-    early: "#f6c453",
-    late: "#f54444",
-    missed: "#f54444",
-    screen: "#060706",
-    pending: "rgba(114, 255, 154, 0.22)"
+  const padding = {
+    top: 20,
+    right: 16,
+    bottom: 32,
+    left: 48
   };
 
-  const allEvents = expectedEvents || [];
-  const completedEvents = allEvents.filter((event) => {
-    return event.result !== null;
-  });
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
 
-  const matchedEvents = completedEvents.filter((event) => {
-    return event.detectedTime !== null &&
-      event.offsetMs !== null;
-  });
-
-  const offsets = matchedEvents.map((event) => {
-    return Math.abs(event.offsetMs);
-  });
-
-  const maxOffset = Math.max(timingWindowMs, ...offsets);
-  const yLimit = Math.max(
-    120,
-    Math.ceil(maxOffset / 50) * 50
+  const visibleEvents = expectedEvents.filter(
+    (event) => event.result !== null
   );
 
-  const padding = {
-    top: 28,
-    right: 12,
-    bottom: 40,
-    left: 34
-  };
+  const maxOffset = Math.max(
+    timingWindowMs,
+    ...visibleEvents
+      .filter((event) => event.offsetMs !== null)
+      .map((event) => Math.abs(event.offsetMs))
+  );
 
-  const chartLeft = padding.left;
-  const chartRight = width - padding.right;
-  const chartTop = padding.top;
-  const chartBottom = height - padding.bottom;
-  const chartWidth = chartRight - chartLeft;
-  const chartHeight = chartBottom - chartTop;
-  const zeroY = chartTop + chartHeight / 2;
-
-  const yForOffset = (offsetMs) => {
-    return zeroY + (offsetMs / yLimit) * (chartHeight / 2);
-  };
-
-  const xForIndex = (index) => {
-    if (allEvents.length <= 1) {
-      return chartLeft + chartWidth / 2;
-    }
-
-    return chartLeft +
-      (index / (allEvents.length - 1)) * chartWidth;
-  };
+  const yLimit = Math.max(200, Math.ceil(maxOffset / 50) * 50);
+  const yToCanvas = (value) =>
+    padding.top + ((yLimit - value) / (yLimit * 2)) * chartHeight;
 
   ctx.clearRect(0, 0, width, height);
 
-  ctx.fillStyle = colors.screen;
-  ctx.fillRect(0, 0, width, height);
+  ctx.font = "11px Arial";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
 
-  ctx.strokeStyle = colors.greenGrid;
-  ctx.lineWidth = 1;
+  const gridValues = [-yLimit, -yLimit / 2, 0, yLimit / 2, yLimit];
 
-  for (let x = 0; x <= width; x += 24) {
+  for (const value of gridValues) {
+    const y = yToCanvas(value);
+
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
+    ctx.strokeStyle = value === 0 ? "#64748b" : "#e2e8f0";
+    ctx.lineWidth = value === 0 ? 1.5 : 1;
+    ctx.setLineDash(value === 0 ? [4, 4] : []);
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
     ctx.stroke();
+
+    ctx.fillStyle = "#64748b";
+    ctx.fillText(`${value} ms`, padding.left - 6, y);
   }
-
-  for (let y = 0; y <= height; y += 24) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-
-  ctx.strokeStyle = "rgba(114, 255, 154, 0.18)";
-  ctx.setLineDash([3, 3]);
-
-  [chartTop, zeroY, chartBottom].forEach((y) => {
-    ctx.beginPath();
-    ctx.moveTo(chartLeft, y);
-    ctx.lineTo(chartRight, y);
-    ctx.stroke();
-  });
 
   ctx.setLineDash([]);
 
-  ctx.strokeStyle = colors.green;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(chartLeft, zeroY);
-  ctx.lineTo(chartRight, zeroY);
-  ctx.stroke();
-
-  ctx.textBaseline = "middle";
-  ctx.textAlign = "left";
-
-  ctx.fillStyle = colors.greenDim;
-  ctx.font = '8px "Share Tech Mono", monospace';
-  ctx.fillText("EARLY", 3, chartTop + 7);
-  ctx.fillText("ON", 3, zeroY - 4);
-  ctx.fillText("BEAT", 3, zeroY + 5);
-  ctx.fillText("LATE", 3, chartBottom - 6);
-
-  ctx.textAlign = "left";
-  ctx.fillStyle = colors.green;
-  ctx.font = '10px "Share Tech Mono", monospace';
-
-  const monitorTitle = isPracticeRunning
-    ? "PRACTICE TIMING"
-    : "TIMING REVIEW";
-
-  ctx.fillText(monitorTitle, chartLeft, 12);
-
-  const currentEvent = allEvents.find((event) => {
-    return event.result === null;
-  });
-
-  const headerRight = currentEvent
-    ? `NEXT E${String(currentEvent.number).padStart(2, "0")}`
-    : `${completedEvents.length}/${allEvents.length} COMPLETE`;
-
-  ctx.textAlign = "right";
-  ctx.fillStyle = colors.greenDim;
-  ctx.font = '8px "Share Tech Mono", monospace';
-  ctx.fillText(headerRight, chartRight, 12);
-
-  if (allEvents.length === 0) {
+  if (visibleEvents.length === 0) {
+    ctx.fillStyle = "#64748b";
+    ctx.font = "13px Arial";
     ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = colors.greenDim;
-    ctx.font = '11px "Share Tech Mono", monospace';
     ctx.fillText(
-      "PRESS START TO BEGIN PRACTICE",
+      "Play a note to see timing data",
       width / 2,
       height / 2
     );
     return;
   }
 
-  ctx.strokeStyle = colors.greenLine;
-  ctx.lineWidth = allEvents.length > 30 ? 1 : 1.5;
-
-  let previousPoint = null;
-
-  allEvents.forEach((event, index) => {
-    if (event.offsetMs === null) {
-      previousPoint = null;
-      return;
+  const xForIndex = (index) => {
+    if (visibleEvents.length === 1) {
+      return padding.left + chartWidth / 2;
     }
 
+    return (
+      padding.left +
+      (index / (visibleEvents.length - 1)) * chartWidth
+    );
+  };
+
+  const matchedEvents = visibleEvents.filter(
+    (event) => event.offsetMs !== null
+  );
+
+  if (matchedEvents.length > 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = 2;
+
+    let started = false;
+
+    visibleEvents.forEach((event, index) => {
+      if (event.offsetMs === null) {
+        started = false;
+        return;
+      }
+
+      const x = xForIndex(index);
+      const y = yToCanvas(event.offsetMs);
+
+      if (!started) {
+        ctx.moveTo(x, y);
+        started = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+
+    ctx.stroke();
+  }
+
+  visibleEvents.forEach((event, index) => {
     const x = xForIndex(index);
-    const y = yForOffset(event.offsetMs);
 
-    if (previousPoint) {
-      ctx.beginPath();
-      ctx.moveTo(previousPoint.x, previousPoint.y);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    }
-
-    previousPoint = { x, y };
-  });
-
-  const dotRadius = allEvents.length > 40
-    ? 2
-    : allEvents.length > 25
-      ? 3
-      : 4;
-
-  const labelEvery = allEvents.length <= 16
-    ? 1
-    : allEvents.length <= 30
-      ? 2
-      : Math.ceil(allEvents.length / 8);
-
-  allEvents.forEach((event, index) => {
-    const x = xForIndex(index);
-    const labelY = chartBottom + 11;
-    const isLatest =
-      event.result !== null &&
-      index === completedEvents.length - 1;
-
-    if (
-      index === 0 ||
-      index === allEvents.length - 1 ||
-      index % labelEvery === 0
-    ) {
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = colors.greenDim;
-      ctx.font = '7px "Share Tech Mono", monospace';
-      ctx.fillText(
-        `E${String(event.number).padStart(2, "0")}`,
-        x,
-        labelY
-      );
-    }
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#64748b";
+    ctx.font = "11px Arial";
+    ctx.fillText(`E${event.number}`, x, height - padding.bottom + 9);
 
     if (event.result === "Missed") {
-      ctx.strokeStyle = colors.missed;
-      ctx.lineWidth = 1.5;
+      const y = yToCanvas(0);
 
+      ctx.strokeStyle = "#64748b";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(x - dotRadius, zeroY - dotRadius);
-      ctx.lineTo(x + dotRadius, zeroY + dotRadius);
-      ctx.moveTo(x + dotRadius, zeroY - dotRadius);
-      ctx.lineTo(x - dotRadius, zeroY + dotRadius);
+      ctx.moveTo(x - 5, y - 5);
+      ctx.lineTo(x + 5, y + 5);
+      ctx.moveTo(x + 5, y - 5);
+      ctx.lineTo(x - 5, y + 5);
       ctx.stroke();
-
       return;
     }
 
     if (event.offsetMs === null) {
-      ctx.strokeStyle = colors.pending;
-      ctx.lineWidth = 1;
-
-      ctx.beginPath();
-      ctx.arc(x, zeroY, dotRadius, 0, Math.PI * 2);
-      ctx.stroke();
-
       return;
     }
 
-    const y = yForOffset(event.offsetMs);
+    const y = yToCanvas(event.offsetMs);
 
-    let pointColor = colors.green;
-
-    if (event.result === "Early") {
-      pointColor = colors.early;
-    }
-
-    if (event.result === "Late") {
-      pointColor = colors.late;
-    }
+    const pointColor =
+      event.result === "On Beat"
+        ? "#22c55e"
+        : event.result === "Early"
+          ? "#f59e0b"
+          : "#ef4444";
 
     ctx.beginPath();
     ctx.fillStyle = pointColor;
-    ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    if (isLatest && isPracticeRunning) {
-      ctx.strokeStyle = "#edfdf1";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(x, y, dotRadius + 2, 0, Math.PI * 2);
-      ctx.stroke();
-    }
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
   });
-
-  const validOffsets = matchedEvents.map((event) => {
-    return event.offsetMs;
-  });
-
-  const medianOffset = median(validOffsets);
-  const accuracy = completedEvents.length > 0
-    ? (matchedEvents.length / completedEvents.length) * 100
-    : 0;
-
-  const matchedText =
-    `${matchedEvents.length}/${completedEvents.length} DETECTED`;
-
-  let footerText = "";
-
-  if (!isPracticeRunning && completedEvents.length > 0) {
-    const medianText = medianOffset === null
-      ? "NO OFFSET DATA"
-      : `MEDIAN ${medianOffset >= 0 ? "+" : ""}` +
-        `${Math.round(medianOffset)} MS`;
-
-    footerText =
-      `FINAL · ${accuracy.toFixed(1)}% · ` +
-      `${matchedText} · ${medianText}`;
-  } else if (completedEvents.length > 0) {
-    const latestEvent =
-      completedEvents[completedEvents.length - 1];
-
-    if (latestEvent.result === "Missed") {
-      footerText =
-        `MISSED E${String(latestEvent.number).padStart(2, "0")} · ` +
-        `${accuracy.toFixed(1)}%`;
-    } else {
-      const sign = latestEvent.offsetMs >= 0 ? "+" : "";
-
-      footerText =
-        `${latestEvent.result.toUpperCase()} · ` +
-        `${sign}${Math.round(latestEvent.offsetMs)} MS · ` +
-        `${accuracy.toFixed(1)}%`;
-    }
-  } else {
-    footerText = "WAITING FOR FIRST NOTE";
-  }
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = colors.greenDim;
-  ctx.font = '8px "Share Tech Mono", monospace';
-  ctx.fillText(footerText, width / 2, height - 10);
 }
 function updatePracticeDisplay() {
   const now = performance.now();
