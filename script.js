@@ -1383,9 +1383,11 @@ function startPractice() {
   Math.min(noteIntervalMs * 0.22, 90)
 );
 
+const maxSafeWindowMs = noteIntervalMs * 0.44;
+
 timingWindowMs = Math.max(
-  80,
-  Math.min(noteIntervalMs * 0.32, 180)
+  65,
+  Math.min(noteIntervalMs * 0.42, 145, maxSafeWindowMs)
 );
   mode = "practice";
   isPracticeRunning = true;
