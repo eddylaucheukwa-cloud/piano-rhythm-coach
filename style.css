@@ -419,7 +419,7 @@ button {
 .bpm-monitor {
   position: absolute;
   right: 12px;
-  bottom: 10px;
+  bottom: 4px;
   color: #72ff9a;
   font: 12px "Share Tech Mono", monospace;
   letter-spacing: 1px;
@@ -724,4 +724,42 @@ button {
 
   transform-origin: 11px 11px;
   transition: none;
+}
+
+/* =========================
+   CALIBRATION ICON COLOUR ONLY
+   只改圖示顏色，完全沒有光暈
+   ========================= */
+
+/* START / APPLY：中間三角形變紅 */
+#startPracticeButton.calibration-apply-active i,
+#startPracticeButton.calibration-apply-flash i {
+  border-left-color: #72ff9a;
+  filter: none;
+}
+
+/* STOP / RETRY：中間正方形變綠 */
+#stopPracticeButton.calibration-retry-active i,
+#stopPracticeButton.calibration-retry-flash i {
+  background: #f54444;
+  box-shadow: none;
+}
+
+/* APPLY / RETRY：沒有光暈的兩下閃動 */
+#startPracticeButton.calibration-apply-active i,
+#stopPracticeButton.calibration-retry-active i {
+  transition:
+    opacity 70ms ease,
+    transform 70ms ease;
+}
+
+#startPracticeButton.calibration-apply-flash i,
+#stopPracticeButton.calibration-retry-flash i {
+  opacity: 0.3;
+  transform: scale(0.82);
+}
+/* 校準失敗：右下 BPM 變紅 */
+.bpm-monitor.calibration-failed {
+  color: #f54444 !important;
+  text-shadow: none !important;
 }
