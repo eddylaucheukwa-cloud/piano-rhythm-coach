@@ -1265,26 +1265,33 @@ function matchCalibrationOnset(soundTime) {
   );
 }
 function matchSoundToExpectedEvent(soundTime) {
-  let nextEvent = expectedEvents.find(
-    (event) => event.detectedTime === null &&
-      event.result === null
-  );
+  const calibrationOffsetMs = calibration
+    ? calibration.offsetMs
+    : 0;
+
+  const expectedSoundTime = (event) => {
+    return event.time + calibrationOffsetMs;
+  };
+
+  let nextEvent = expectedEvents.find((event) => {
+    return event.detectedTime === null &&
+      event.result === null;
+  });
 
   /*
-    如果現在已超過某個 event 的可接受時間，
-    先將它標記為 Missed，然後繼續找下一粒。
-    否則一旦漏掉第一粒，整個 sequence 就會卡住。
+    以「加了校準延遲後」的預期琴聲到達時間判斷是否 Missed。
+    不能再直接用 event.time，否則藍牙延遲會令第一粒過早被判 Missed。
   */
   while (
     nextEvent &&
-    soundTime > nextEvent.time + timingWindowMs
+    soundTime > expectedSoundTime(nextEvent) + timingWindowMs
   ) {
     nextEvent.result = "Missed";
 
-    nextEvent = expectedEvents.find(
-      (event) => event.detectedTime === null &&
-        event.result === null
-    );
+    nextEvent = expectedEvents.find((event) => {
+      return event.detectedTime === null &&
+        event.result === null;
+    });
   }
 
   if (!nextEvent) {
@@ -1292,65 +1299,57 @@ function matchSoundToExpectedEvent(soundTime) {
     return;
   }
 
-  const difference = soundTime - nextEvent.time;
+  const rawDifference = soundTime - nextEvent.time;
 
   /*
-    太早的聲音通常是上一粒音的泛音／殘響，
-    或是 count-in 前的聲音；忽略它，
-    但不要將下一個真正 event 標示為 Missed。
+    correctedDifference 是相對於「已補償後預期到達時間」的偏差。
+    這個值才是折線圖、Early/Late、median 要使用的數值。
   */
-  if (difference < -timingWindowMs) {
+  const correctedDifference =
+    soundTime - expectedSoundTime(nextEvent);
+
+  if (correctedDifference < -timingWindowMs) {
     practiceStatus.textContent =
       "Onset ignored: too early for next event.";
     return;
   }
 
-  /*
-    理論上 while 已處理過太遲情況；
-    保留這一層，避免極端 timing 狀況。
-  */
-  if (difference > timingWindowMs) {
+  if (correctedDifference > timingWindowMs) {
     practiceStatus.textContent =
       "Onset ignored: too late for next event.";
     return;
   }
 
   nextEvent.detectedTime = soundTime;
-
-const calibrationOffsetMs = calibration
-  ? calibration.offsetMs
-  : 0;
-
-const correctedDifference =
-  difference - calibrationOffsetMs;
-
-nextEvent.rawOffsetMs = difference;
-nextEvent.correctedOffsetMs = correctedDifference;
-
-// 保持現有 chart 和 result list 正常；
-// 它們目前會讀取 offsetMs。
-nextEvent.offsetMs = correctedDifference;
+  nextEvent.rawOffsetMs = rawDifference;
+  nextEvent.correctedOffsetMs = correctedDifference;
+  nextEvent.offsetMs = correctedDifference;
 
   const onBeatRangeMs = Math.min(
-  55,
-  timingWindowMs * 0.55
-);
+    55,
+    timingWindowMs * 0.55
+  );
 
-if (correctedDifference < -onBeatRangeMs) {
-  nextEvent.result = "Early";
-} else if (correctedDifference > onBeatRangeMs) {
-  nextEvent.result = "Late";
-} else {
-  nextEvent.result = "On Beat";
-}
+  if (correctedDifference < -onBeatRangeMs) {
+    nextEvent.result = "Early";
+  } else if (correctedDifference > onBeatRangeMs) {
+    nextEvent.result = "Late";
+  } else {
+    nextEvent.result = "On Beat";
+  }
 
-  const sign = correctedDifference >= 0 ? "+" : "";
+  const correctedSign = correctedDifference >= 0
+    ? "+"
+    : "";
 
-practiceStatus.textContent =
-  `Event ${nextEvent.number}: ` +
-  `${sign}${correctedDifference.toFixed(0)} ms ` +
-  `(raw: ${difference >= 0 ? "+" : ""}` +
-  `${difference.toFixed(0)} ms)`;
+  const rawSign = rawDifference >= 0
+    ? "+"
+    : "";
+
+  practiceStatus.textContent =
+    `Event ${nextEvent.number}: ${nextEvent.result} ` +
+    `${correctedSign}${correctedDifference.toFixed(0)} ms ` +
+    `(raw: ${rawSign}${rawDifference.toFixed(0)} ms)`;
 
   updatePracticeDisplay();
 }
@@ -1386,7 +1385,7 @@ function startPractice() {
 
 timingWindowMs = Math.max(
   80,
-  Math.min(noteIntervalMs * 0.38, 220)
+  Math.min(noteIntervalMs * 0.32, 180)
 );
   mode = "practice";
   isPracticeRunning = true;
