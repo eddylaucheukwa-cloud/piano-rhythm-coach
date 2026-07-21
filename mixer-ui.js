@@ -134,7 +134,7 @@ tempoKnob.addEventListener("pointermove", (event) => {
 
   // Clockwise increases BPM; counter-clockwise decreases BPM.
 // 40 BPM 升到 180 BPM 約需要多少完整圈
-const turnsFromMinToMax = 3;
+const turnsFromMinToMax = 2;
 
 // 轉 1 圈時，基礎速度可改變的 BPM。
 // 140 = 180 - 40，360 = 一圈的角度。
