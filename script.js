@@ -24,7 +24,7 @@ let calibrationMonitorFrame = null;
 const CALIBRATION_BPM = 60;
 const CALIBRATION_NOTE_COUNT = 15;
 const CALIBRATION_COUNT_IN_BEATS = 4;
-const CALIBRATION_WINDOW_MS = 1000;
+const CALIBRATION_WINDOW_MS = 650;
 const MIN_VALID_CALIBRATION_NOTES = Math.ceil(
   CALIBRATION_NOTE_COUNT * 0.6
 );
@@ -1384,7 +1384,7 @@ function startPractice() {
 );
 timingWindowMs = Math.max(
   80,
-  Math.min(noteIntervalMs * 0.38, 220)
+  Math.min(noteIntervalMs * 0.46, 180)
 );
   mode = "practice";
   isPracticeRunning = true;
@@ -1429,12 +1429,15 @@ stopPracticeMetronome();
 stopRecording();
 
   const now = performance.now();
-  const toleranceMs = timingWindowMs;
+const toleranceMs = timingWindowMs;
+const calibrationOffsetMs = calibration
+  ? calibration.offsetMs
+  : 0;
 
   for (const event of expectedEvents) {
     if (
       event.detectedTime === null &&
-      now > event.time + toleranceMs
+      now > event.time + calibrationOffsetMs + toleranceMs
     ) {
       event.result = "Missed";
     }
@@ -1783,11 +1786,14 @@ function drawTimingChart() {
 function updatePracticeDisplay() {
   const now = performance.now();
   const toleranceMs = timingWindowMs;
+  const calibrationOffsetMs = calibration
+    ? calibration.offsetMs
+    : 0;
 
   for (const event of expectedEvents) {
     if (
       event.detectedTime === null &&
-      now > event.time + toleranceMs &&
+      now > event.time + calibrationOffsetMs + toleranceMs &&
       event.result === null
     ) {
       event.result = "Missed";
