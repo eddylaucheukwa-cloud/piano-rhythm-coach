@@ -17,7 +17,7 @@
         <canvas id="timingChart" width="372" height="205"></canvas>
         <output id="bpmMonitor" class="bpm-monitor">BPM 060</output>
         </section>
-        <div class="monitor-foot"><span>EARLY</span><span>0 MS</span><span>LATE</span></div>
+        <div class="monitor-foot"><span>LATE</span></div>
         <section class="control-row">
             <div class="tempo-zone">
                 <p>TEMPO</p>
@@ -59,16 +59,22 @@
         </section>
         <section class="transport">
             <div>
-                <p>PLAYBACK</p><button id="playbackButton" class="hardware-key playback-key" type="button" disabled
-                    aria-label="Play latest recording"><i class="playback-icon"></i></button>
+                <p>PLAYBACK</p><button id="playbackButton"
+        class="hardware-key playback-key"
+        type="button"
+        aria-label="Play latest recording"><i class="playback-icon"></i></button>
             </div>
             <div>
-                <p id="startLabel">START</p><button id="startPracticeButton" class="hardware-key start-key" type="button" disabled
-                    aria-label="Start practice"><i></i></button>
+                <p id="startLabel">START</p><button id="startPracticeButton"
+        class="hardware-key start-key"
+        type="button"
+        aria-label="Start practice"><i></i></button>
             </div>
             <div>
-                <p id="stopLabel">STOP</p><button id="stopPracticeButton" class="hardware-key stop-key" type="button" disabled
-                    aria-label="Stop practice"><i></i></button>
+                <p id="stopLabel">STOP</p><button id="stopPracticeButton"
+        class="hardware-key stop-key"
+        type="button"
+        aria-label="Stop practice"><i></i></button>
             </div>
         </section>
         <button id="micButton" class="mic-key" type="button">ALLOW MICROPHONE</button>
@@ -86,7 +92,7 @@
                 type="button"></button><button id="stopRecordButton" type="button"></button><audio
                 id="recordedAudio"></audio><span id="recordStatus"></span><button id="startButton"></button><button
                 id="stopButton"></button><i id="beatLight"></i><span id="detectionText"></span></div>
-                
+
     </main>
     <script src="script.js"></script>
     <script src="mixer-ui.js"></script>

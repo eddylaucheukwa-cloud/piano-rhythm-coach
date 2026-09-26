@@ -338,13 +338,18 @@ button {
 }
 
 .start-key i {
-    display: inline-block;
-    border-top: 17px solid transparent;
-    border-bottom: 17px solid transparent;
-    border-left: 28px solid #d0d0ce;
-    filter: drop-shadow(1px 1px 1px #999)
-}
+  display: inline-block;
+  width: 28px;
+  height: 34px;
 
+  background: #d0d0ce;
+
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+
+  box-shadow:
+    inset 2px 2px 4px #aaa,
+    inset -1px -1px 2px #f7f7f4;
+}
 .stop-key i {
     display: inline-block;
     width: 25px;
@@ -362,15 +367,6 @@ button {
     box-shadow: inset 1px 1px 3px #aaa
 }
 
-.playback-key.playing {
-    color: var(--green);
-    box-shadow: 0 0 9px #72ff9a99, 0 7px 1px #757874, inset 0 0 15px #72ff9a33
-}
-
-.playback-key.playing .playback-icon {
-    background: var(--green);
-    box-shadow: 0 0 12px var(--green)
-}
 
 .mic-key {
     display: block;
@@ -731,14 +727,14 @@ button {
    只改圖示顏色，完全沒有光暈
    ========================= */
 
-/* START / APPLY：中間三角形變紅 */
+/* START / APPLY：中間三角形變綠 */
 #startPracticeButton.calibration-apply-active i,
 #startPracticeButton.calibration-apply-flash i {
-  border-left-color: #72ff9a;
+  background: #72ff9a;
   filter: none;
 }
 
-/* STOP / RETRY：中間正方形變綠 */
+/* STOP / RETRY：中間正方形變紅 */
 #stopPracticeButton.calibration-retry-active i,
 #stopPracticeButton.calibration-retry-flash i {
   background: #f54444;
@@ -762,4 +758,230 @@ button {
 .bpm-monitor.calibration-failed {
   color: #f54444 !important;
   text-shadow: none !important;
+}
+
+/* 不讓 disabled 狀態令硬件鍵灰掉 */
+.hardware-key:disabled {
+  opacity: 1;
+  cursor: pointer;
+}
+
+
+/* ========================================
+   TRANSPORT ICONS
+   只改顏色：沒有 glow、沒有陰影、沒有閃爍
+   ======================================== */
+
+/* START：綠色三角形 */
+.start-key.lamp-green i {
+  background: #72ff9a !important;
+  box-shadow: none !important;
+  filter: none !important;
+  animation: none !important;
+}
+
+/* STOP：紅色方形 */
+.stop-key.lamp-red i {
+  background: #f54444 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  animation: none !important;
+}
+
+/* PLAYBACK：有錄音後為純綠色圓形 */
+.playback-key.lamp-green .playback-icon,
+.playback-key.lamp-playing .playback-icon {
+  background: #72ff9a !important;
+  box-shadow: none !important;
+  filter: none !important;
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+/* 不容許播放狀態令整粒按鍵出現綠色效果 */
+.playback-key.lamp-green,
+.playback-key.lamp-playing,
+.playback-key.playing {
+  color: #b6b6b4 !important;
+  box-shadow: 0 7px 1px #757874, inset 2px 2px #fff !important;
+  filter: none !important;
+  animation: none !important;
+}
+/* ========================================
+   三粒 Transport 按鍵：完全統一按下效果
+   桌面用 :active；手機／平板用 .is-pressed
+   ======================================== */
+.playback-key:active,
+.start-key:active,
+.stop-key:active,
+.playback-key.is-pressed,
+.start-key.is-pressed,
+.stop-key.is-pressed {
+  transform: translateY(4px) !important;
+  filter: brightness(0.94) !important;
+  box-shadow:
+    0 2px 0 #767874,
+    inset 3px 3px 7px rgba(80, 82, 78, 0.30),
+    inset -1px -1px 2px rgba(255, 255, 255, 0.50) !important;
+}
+/* ========================================
+   練習進行中：PLAYBACK 圓形 icon 紅色閃爍
+   只有顏色及透明度變化，沒有光暈
+   ======================================== */
+.playback-key.lamp-recording .playback-icon {
+  background: #f54444 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  animation: playback-recording-blink 0.8s step-end infinite !important;
+}
+
+@keyframes playback-recording-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  46%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+/* Control surface refresh: retain the original instrument and display. */
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100dvh;
+  height: auto;
+  padding: 22px 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: radial-gradient(circle at 50% 15%, #aeb2ad, #777d78 90%);
+}
+
+.console {
+  width: min(412px, calc(100vw - 28px));
+  height: auto;
+  min-height: 0;
+  padding: 32px 24px 42px;
+  transform: none;
+  border: 1px solid #dadcd6;
+  border-radius: 20px;
+  background: linear-gradient(115deg, #d0d2cd 0%, #c3c6c0 50%, #b8bcb6 100%);
+  box-shadow:
+    0 22px 40px rgba(25, 29, 26, .3),
+    0 6px 0 #747a73,
+    inset 2px 2px 2px rgba(255, 255, 255, .8),
+    inset -2px -2px 4px rgba(83, 90, 81, .2);
+}
+
+.console::before,
+.console::after {
+  bottom: 17px;
+  width: 11px;
+  height: 11px;
+  border-color: #e5e6e1;
+  background: #9ca29a;
+}
+
+.console::before { left: 20px; }
+.console::after { right: 20px; }
+
+.monitor-foot { justify-content: flex-end; }
+
+.control-row {
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 11px;
+  margin-top: 12px;
+}
+
+.tempo-zone,
+.sense-zone {
+  position: relative;
+}
+
+.tempo-zone > p,
+.sense-zone > p {
+  color: #555c56;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+
+.volume-meter {
+  width: min(230px, calc(100% - 22px));
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.sense-zone { padding-top: 28px; z-index: 3; }
+.sense-zone p { color: #626a62; }
+.fader {
+  width: 12px;
+  height: 262px;
+  border: 2px solid #9ca29b;
+  border-radius: 8px;
+  background: #252b26;
+  box-shadow: inset 2px 2px 4px #111812, 1px 1px 0 #e7e9e2;
+}
+
+.fader::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: -9px;
+  width: 5px;
+  background: repeating-linear-gradient(to bottom, #747c73 0 1px, transparent 1px 16px);
+  pointer-events: none;
+}
+
+.fader button {
+  z-index: 4;
+  left: -15px;
+  width: 38px;
+  height: 37px;
+  border: 1px solid #a2a7a0;
+  border-radius: 5px;
+  background: repeating-linear-gradient(to bottom, #f1f1ec 0 3px, #aab0a8 3px 5px);
+  box-shadow: 0 3px 0 #777e75, 1px 5px 7px rgba(38, 47, 38, .32);
+}
+
+.mic-key {
+  width: 188px;
+  height: 39px;
+  margin: 20px auto 0;
+  border: 1px solid #eef0e9;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #fafbf6, #d5dad2);
+  box-shadow: 0 4px 0 #7b8279, inset 2px 2px 2px #fff;
+  color: #4f584f;
+  font-size: 10px;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+
+.hardware-key:focus-visible,
+.mic-key:focus-visible,
+.step-buttons button:focus-visible,
+.notes-wheel:focus-visible,
+.tempo-knob:focus-visible,
+.fader button:focus-visible {
+  outline: 3px solid #267d48;
+  outline-offset: 4px;
+}
+
+@media (max-width: 600px) {
+  .console { padding-top: 24px; padding-bottom: 42px; }
+  .mic-key { margin-top: 20px; }
+}
+
+@media (max-width: 360px) {
+  .console { padding-right: 17px; padding-left: 17px; }
+  .transport { grid-template-columns: 1fr 1.8fr 1fr; gap: 8px; margin-right: 0; margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hardware-key, .mic-key, .step-buttons button, .notes-wheel { transition: none; }
 }

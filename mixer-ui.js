@@ -8,7 +8,6 @@ const playback = document.getElementById("playbackButton");
 const audio = document.getElementById("recordedAudio");
 const fader = document.getElementById("sensitivityHandle");
 const bpmMonitor = document.getElementById("bpmMonitor");
-
 const MIN = 40;
 const MAX = 180;
 const START = -135;
@@ -134,7 +133,7 @@ tempoKnob.addEventListener("pointermove", (event) => {
 
   // Clockwise increases BPM; counter-clockwise decreases BPM.
 // 40 BPM 升到 180 BPM 約需要多少完整圈
-const turnsFromMinToMax = 2;
+const turnsFromMinToMax = 3;
 
 // 轉 1 圈時，基礎速度可改變的 BPM。
 // 140 = 180 - 40，360 = 一圈的角度。
@@ -248,7 +247,10 @@ sensitivityTrack.addEventListener("pointermove", (event) => {
 });
 
 playback.addEventListener("click", () => {
-  if (!audio.src) return;
+  /* 練習中或未有完成錄音：按下但不做事 */
+  if (isPracticeRunning || !audio.src) {
+    return;
+  }
 
   if (audio.paused) {
     audio.play();
@@ -257,29 +259,6 @@ playback.addEventListener("click", () => {
   }
 });
 
-audio.addEventListener("play", () => {
-  playback.classList.add("playing");
-});
-
-["pause", "ended"].forEach((eventName) => {
-  audio.addEventListener(eventName, () => {
-    playback.classList.remove("playing");
-  });
-});
-
-startPracticeButton.addEventListener("click", () => {
-  playback.disabled = true;
-  audio.pause();
-  audio.removeAttribute("src");
-});
-
-stopPracticeButton.addEventListener("click", () => {
-  setTimeout(() => {
-    if (audio.src) {
-      playback.disabled = false;
-    }
-  }, 400);
-});
 
 bpmSlider.addEventListener("input", syncMixer);
 notesPerBeat.addEventListener("input", syncMixer);
@@ -341,7 +320,6 @@ function sensitivityHaptic() {
 bpmSlider.addEventListener("input", tempoHaptic);
 onsetThresholdSlider.addEventListener("input", sensitivityHaptic);
 syncMixer();
-
 // =========================
 // MOBILE BUTTON PRESS FEEDBACK
 // =========================
@@ -365,4 +343,3 @@ feedbackButtons.forEach((button) => {
     }
   );
 });
-

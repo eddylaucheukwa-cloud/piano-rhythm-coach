@@ -31,7 +31,7 @@ const MIN_VALID_CALIBRATION_NOTES = Math.ceil(
 const CLUSTER_RADIUS_MS = 45;
 bpmSlider.addEventListener("input", () => {
   bpmValue.textContent = bpmSlider.value;
-  
+
 });
 const micButton = document.getElementById("micButton");
 const volumeBar = document.getElementById("volumeBar");
@@ -49,10 +49,9 @@ const recordedAudio = document.getElementById("recordedAudio");
 const recordStatus = document.getElementById("recordStatus");
 const notesPerBeat = document.getElementById("notesPerBeat");
 const totalNotes = document.getElementById("totalNotes");
-const startPracticeButton =
-  document.getElementById("startPracticeButton");
-const stopPracticeButton =
-  document.getElementById("stopPracticeButton");
+const playbackButton = document.getElementById("playbackButton");
+const startPracticeButton = document.getElementById("startPracticeButton");
+const stopPracticeButton = document.getElementById("stopPracticeButton");
 const startLabel = document.getElementById("startLabel");
 const stopLabel = document.getElementById("stopLabel");
 const practiceStatus = document.getElementById("practiceStatus");
@@ -662,7 +661,7 @@ function startCalibration() {
     console.log(
       "Calibration blocked: connect microphone first"
     );
-    
+
     practiceStatus.textContent =
       "Please connect microphone first.";
 
@@ -949,12 +948,14 @@ function setTransportState({
   startLabel.textContent = startText;
   stopLabel.textContent = stopText;
 
-  startPracticeButton.disabled = !startEnabled;
-  stopPracticeButton.disabled = !stopEnabled;
+  startPracticeButton.disabled = false;
+  stopPracticeButton.disabled = false;
+
+  startPracticeButton.classList.toggle("lamp-green", startEnabled);
+  stopPracticeButton.classList.toggle("lamp-red", stopEnabled && stopLight);
 
   /*
-    START / APPLY = 紅燈 class
-    STOP / RETRY  = 綠燈 class
+    Calibration result press feedback.
   */
   startPracticeButton.classList.toggle(
     "calibration-apply-active",
@@ -1059,8 +1060,14 @@ function startRecording() {
     const audioUrl = URL.createObjectURL(audioBlob);
 
     recordedAudio.src = audioUrl;
-    recordedAudio.load();
-    recordStatus.textContent = "Practice recording ready to play.";
+recordedAudio.load();
+
+recordStatus.textContent = "Practice recording ready to play.";
+
+/* 只有錄音 blob 已建立後，才亮起 PLAYBACK */
+playbackButton.classList.remove("lamp-recording");
+playbackButton.classList.add("lamp-green");
+window.updateTransportLamps?.();
   });
 
   mediaRecorder.start();
@@ -1368,6 +1375,10 @@ function stopPracticeMetronome() {
 }
 
 function startPractice() {
+  if (isPracticeRunning || mode !== "idle") {
+    return;
+  }
+
   if (!microphoneStream) {
     practiceStatus.textContent = "Please connect microphone first.";
     return;
@@ -1387,7 +1398,18 @@ timingWindowMs = Math.max(
   Math.min(noteIntervalMs * 0.46, 180)
 );
   mode = "practice";
-  isPracticeRunning = true;
+isPracticeRunning = true;
+/* Transport icon state: practice / recording */
+startPracticeButton.classList.remove("lamp-green");
+stopPracticeButton.classList.add("lamp-red");
+
+playbackButton.classList.remove("lamp-green", "lamp-playing");
+playbackButton.classList.add("lamp-recording");
+recordedAudio.pause();
+recordedAudio.removeAttribute("src");
+recordedAudio.load();
+
+window.updateTransportLamps?.();
   lastOnsetTime = 0;
   previousVolume = 0;
   previousFlux = 0;
@@ -1404,8 +1426,7 @@ timingWindowMs = Math.max(
 startRecording();
 startPracticeMetronome();
 
-  startPracticeButton.disabled = true;
-  stopPracticeButton.disabled = false;
+
   bpmSlider.disabled = true;
   notesPerBeat.disabled = true;
   totalNotes.disabled = true;
@@ -1427,6 +1448,17 @@ function stopPractice() {
   isPracticeRunning = false;
 stopPracticeMetronome();
 stopRecording();
+  mode = "idle";
+/* Transport icon state: practice stopped */
+startPracticeButton.classList.add("lamp-green");
+stopPracticeButton.classList.remove("lamp-red");
+
+playbackButton.classList.remove(
+  "lamp-recording",
+  "lamp-green",
+  "lamp-playing"
+);
+window.updateTransportLamps?.();
 
   const now = performance.now();
 const toleranceMs = timingWindowMs;
@@ -1465,8 +1497,7 @@ const calibrationOffsetMs = calibration
   practiceStatus.textContent =
     "Practice stopped. Check each event below.";
 
-  startPracticeButton.disabled = false;
-  stopPracticeButton.disabled = true;
+
   bpmSlider.disabled = false;
   notesPerBeat.disabled = false;
   totalNotes.disabled = false;
@@ -1890,3 +1921,5 @@ stopPracticeButton.addEventListener("click", () => {
 
   stopPractice();
 });
+
+startPracticeButton.classList.add("lamp-green");
