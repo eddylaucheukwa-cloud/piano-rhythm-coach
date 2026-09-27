@@ -985,21 +985,21 @@ body {
 /* Keep the full instrument within the usable height on phones. */
 @media (max-width: 600px) {
   :root {
-    --phone-dial: clamp(112px, calc(35dvh - 85px), 170px);
-    --phone-monitor: clamp(88px, calc(25dvh - 35px), 140px);
+    --phone-dial: clamp(112px, calc(35dvh - 85px), 180px);
+    --phone-monitor: clamp(88px, calc(25dvh - 27px), 156px);
   }
 
   body { padding: 6px 8px; }
   .console {
     width: min(412px, calc(100vw - 16px));
-    padding: 12px 16px 24px;
+    padding: 12px 16px 28px;
   }
   .console::before, .console::after { bottom: 7px; }
   .title-lcd { height: 35px; padding: 8px 10px; }
   .monitor-label { height: 30px; padding-top: 6px; }
   .monitor { height: var(--phone-monitor); }
   .monitor-foot { height: 12px; padding: 2px 8px; }
-  .control-row { margin-top: 7px; }
+  .control-row { margin-top: 10px; }
   .volume-meter { margin-top: 5px; margin-bottom: 8px; }
   .tempo-knob { width: var(--phone-dial); height: var(--phone-dial); }
   .tempo-knob #knobOrbit {
@@ -1014,9 +1014,9 @@ body {
   .sense-zone { padding-top: 25px; }
   .fader { height: calc(var(--phone-dial) + 30px); }
   .readout-row { margin-top: -20px; }
-  .transport { margin-top: 9px; gap: 10px; }
+  .transport { margin-top: 12px; gap: 10px; }
   .hardware-key, .start-key { height: 60px; }
-  .mic-key { height: 30px; margin-top: 12px; }
+  .mic-key { height: 30px; margin-top: 14px; }
 }
 
 @media (max-width: 360px) {
