@@ -373,11 +373,6 @@ button {
     width: 141px;
     height: 15px;
     margin: 26px auto 0;
-    border: 0;
-    border-radius: 4px;
-    background: #e5e5e1;
-    box-shadow: 0 2px 1px #888;
-    color: #999;
     font-size: 7px
 }
 
@@ -952,14 +947,9 @@ body {
   width: 156px;
   height: 32px;
   margin: 20px auto 0;
-  border: 1px solid #eef0e9;
-  border-radius: 8px;
-  background: linear-gradient(145deg, #fafbf6, #d5dad2);
-  box-shadow: 0 4px 0 #7b8279, inset 2px 2px 2px #fff;
-  color: #4f584f;
+  color: #6f756e;
   font-size: 10px;
   letter-spacing: .04em;
-  cursor: pointer;
 }
 
 .hardware-key:focus-visible,

@@ -1,0 +1,7 @@
+.wrangler/
+.claude/
+backups/
+*.bak
+*-old.html
+*-old.css
+node_modules/
