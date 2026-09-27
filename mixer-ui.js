@@ -45,7 +45,8 @@ notch.style.transform = `rotate(${-knobRotation}deg)`;
   eventValue.textContent = String(totalNotes.value).padStart(2, "0");
 
   const threshold = Number(onsetThresholdSlider.value);
-  const top = 230 - ((threshold - 1) / 29) * 230;
+  const travel = Math.max(0, sensitivityTrack.clientHeight - fader.offsetHeight);
+  const top = (1 - (threshold - 1) / 29) * travel;
   fader.style.top = `${top}px`;
 }
 
@@ -213,7 +214,8 @@ function setSensitivityFromPointer(event) {
   const trackRect = sensitivityTrack.getBoundingClientRect();
 
   // 手指在滑軌內的位置：上方是 1，下方是 0
-  let position = (event.clientY - trackRect.top) / trackRect.height;
+  const travel = Math.max(1, trackRect.height - fader.getBoundingClientRect().height);
+  let position = (event.clientY - trackRect.top - fader.getBoundingClientRect().height / 2) / travel;
   position = Math.max(0, Math.min(1, position));
 
   // 上推：threshold 增加；下拉：threshold 減少
@@ -320,6 +322,23 @@ function sensitivityHaptic() {
 bpmSlider.addEventListener("input", tempoHaptic);
 onsetThresholdSlider.addEventListener("input", sensitivityHaptic);
 syncMixer();
+
+// Phone browser bars leave different amounts of usable height. Fit the panel
+// after the responsive layout has settled, and recalculate when that changes.
+const consolePanel = document.querySelector(".console");
+function fitPhonePanel() {
+  consolePanel.style.zoom = "";
+  if (window.innerWidth > 600) return;
+
+  const bodyStyle = getComputedStyle(document.body);
+  const outerSpace = parseFloat(bodyStyle.paddingTop) + parseFloat(bodyStyle.paddingBottom);
+  const available = (window.visualViewport?.height ?? window.innerHeight) - outerSpace - 2;
+  const scale = Math.min(1, available / consolePanel.getBoundingClientRect().height);
+  if (scale < 1) consolePanel.style.zoom = String(scale);
+}
+fitPhonePanel();
+window.addEventListener("resize", fitPhonePanel);
+window.visualViewport?.addEventListener("resize", fitPhonePanel);
 // =========================
 // MOBILE BUTTON PRESS FEEDBACK
 // =========================
