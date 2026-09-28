@@ -501,8 +501,10 @@ button {
   border-radius: 1px;
   background:
     linear-gradient(90deg, rgba(0, 0, 0, .55), rgba(255, 255, 255, .2) 40%, transparent 65%, rgba(0, 0, 0, .55)),
-    repeating-linear-gradient(to bottom, #424242 0 1px, #d4d4d4 1px 2px, #ededed 2px 4px, #aaa 4px 6px, #4d4d4d 6px 8px);
+    linear-gradient(to bottom, #424242 0 1px, #d4d4d4 1px 2px, #ededed 2px 4px, #aaa 4px 6px, #4d4d4d 6px 8px);
   background-position: 0 0, 0 var(--wheel-position, 0px);
+  background-size: auto, 100% 8px;
+  background-repeat: no-repeat, repeat-y;
   box-shadow: inset 1px 0 #f4f4f4, inset -1px 0 #383838;
   transition: background-position 130ms ease-out;
   pointer-events: none;
