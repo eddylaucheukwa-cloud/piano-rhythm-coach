@@ -203,6 +203,18 @@ wheel.addEventListener("pointermove", (event) => {
   });
 });
 
+wheel.addEventListener("wheel", (event) => {
+  if (event.deltaY === 0) return;
+  event.preventDefault();
+  changeNotes(event.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+
+wheel.addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  event.preventDefault();
+  changeNotes(event.key === "ArrowUp" ? 1 : -1);
+});
+
 // =========================
 // SENSITIVITY FADER
 // Mobile-friendly absolute drag

@@ -480,47 +480,46 @@ button {
 /* NOTES 右側的實體直立滾輪 */
 .notes-wheel {
   position: absolute;
-  top: 22px;
-  left: 76px;
+  top: 27px;
+  left: 75px;
 
   width: 17px;
-  height: 49px;
-  padding: 4px 2px;
+  height: 34px;
+  padding: 0;
 
-  border: 1px solid #4b514b;
+  border: 2px solid #3c403d;
   border-radius: 2px;
   cursor: ns-resize;
   touch-action: none;
 
   background:
-    linear-gradient(
-      90deg,
-      #414642 0%,
-      #b2b5af 14%,
-      #f5f6f2 43%,
-      #e5e7e2 60%,
-      #7a7e78 85%,
-      #303330 100%
-    );
+    linear-gradient(90deg, rgba(35, 39, 35, .65), rgba(255, 255, 255, .45) 27%, transparent 55%, rgba(37, 41, 37, .5)),
+    repeating-linear-gradient(to bottom, #c5c9c3 0 2px, #f4f5f1 2px 4px, #797e78 4px 5px, #b9beb8 5px 6px);
 
   box-shadow:
-    1px 3px 0 #737970,
-    inset 1px 1px 0 #fff,
-    inset -1px -1px 1px #3b3f3b;
+    1px 2px 0 #737970,
+    1px 4px 3px rgba(53, 58, 52, .45),
+    inset 1px 0 #fff,
+    inset -1px 0 #343834;
 
   transition:
     transform 90ms ease,
     box-shadow 90ms ease;
 }
 
-.notes-wheel i {
-  display: block;
-  width: 100%;
+.notes-wheel::before,
+.notes-wheel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
   height: 2px;
-  margin: 3px 0;
-  background: rgba(42, 42, 42, 0.8);
-  box-shadow: 0 1px rgba(255, 255, 255, 0.55);
+  background: #353a35;
+  pointer-events: none;
 }
+
+.notes-wheel::before { top: 0; }
+.notes-wheel::after { bottom: 0; }
 
 .notes-wheel:active {
   transform: translateY(2px);
@@ -1006,6 +1005,15 @@ body {
   .transport { margin-top: 14px; gap: 10px; }
   .hardware-key, .start-key { height: 60px; }
   .mic-key { height: 27px; margin-top: 12px; }
+}
+
+@media (max-width: 340px) {
+  .readout-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding-inline: 8px;
+  }
+  .readout { width: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
