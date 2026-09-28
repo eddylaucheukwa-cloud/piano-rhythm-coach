@@ -1,5 +1,7 @@
 const rhythmValue = document.getElementById("rhythmValue");
 const eventValue = document.getElementById("eventValue");
+const rhythmDigits = rhythmValue.querySelector("span");
+const eventDigits = eventValue.querySelector("span");
 const tempoKnob = document.getElementById("tempoKnob");
 const notch = document.getElementById("knobNotch");
 const knobOrbit = document.getElementById("knobOrbit");
@@ -41,8 +43,8 @@ notch.style.transform = `rotate(${-knobRotation}deg)`;
     bpmMonitor.textContent = `BPM ${String(bpm).padStart(3, "0")}`;
   }
 
-  rhythmValue.textContent = String(notesPerBeat.value).padStart(2, "0");
-  eventValue.textContent = String(totalNotes.value).padStart(2, "0");
+  rhythmDigits.textContent = String(notesPerBeat.value).padStart(2, "0");
+  eventDigits.textContent = String(totalNotes.value).padStart(2, "0");
 
   const threshold = Number(onsetThresholdSlider.value);
   const travel = Math.max(0, sensitivityTrack.clientHeight - fader.offsetHeight);
@@ -64,7 +66,7 @@ function changeRhythm(delta) {
 
   notesPerBeat.value = next;
   notesPerBeat.dispatchEvent(new Event("input"));
-  animateNumber(rhythmValue, delta);
+  animateNumber(rhythmDigits, delta);
   syncMixer();
 }
 // NOTES wheel：限制震動頻率，避免連續移動時互相中斷
@@ -90,7 +92,7 @@ function changeNotes(delta) {
   totalNotes.value = next;
   totalNotes.dispatchEvent(new Event("input"));
 notesHapticFeedback();
-animateNumber(eventValue, delta);
+animateNumber(eventDigits, delta);
 
   wheel.classList.remove("bump-up", "bump-down");
   void wheel.offsetWidth;

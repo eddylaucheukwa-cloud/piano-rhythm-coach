@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500&family=Share+Tech+Mono&display=swap");
 
 :root {
     --panel: #c4c4c4;
@@ -118,14 +118,6 @@ button {
     display: block
 }
 
-.monitor-foot {
-    display: flex;
-    gap: 3px;
-    padding: 3px 8px;
-    color: var(--green);
-    font-size: 8px
-}
-
 .control-row {
     display: grid;
     grid-template-columns: 1fr 45px;
@@ -162,12 +154,6 @@ button {
     #72ff9a 0 4px,
     #2e6840 4px 6px
   );
-}
-
-.volume-meter:before {
-    content: "";
-    display: block;
-    position: absolute
 }
 
 .volume-meter,
@@ -244,11 +230,15 @@ button {
     overflow: hidden
 }
 
-.readout output.roll-up {
+.readout output span {
+    display: inline-block
+}
+
+.readout output span.roll-up {
     animation: up .16s ease-out
 }
 
-.readout output.roll-down {
+.readout output span.roll-down {
     animation: down .16s ease-out
 }
 
@@ -859,7 +849,7 @@ body {
   width: min(412px, calc(100vw - 28px));
   height: auto;
   min-height: 0;
-  padding: 32px 24px 42px;
+  padding: 32px 24px 66px;
   transform: none;
   border: 1px solid #dadcd6;
   border-radius: 20px;
@@ -883,8 +873,6 @@ body {
 .console::before { left: 20px; }
 .console::after { right: 20px; }
 
-.monitor-foot { justify-content: flex-end; }
-
 .control-row {
   grid-template-columns: minmax(0, 1fr) 48px;
   gap: 11px;
@@ -896,22 +884,41 @@ body {
   position: relative;
 }
 
+.monitor-label,
+.tempo-zone > p,
+.sense-zone > p,
+.readout p,
+.transport p,
+.mic-key {
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-weight: 500;
+  letter-spacing: .1em;
+}
+
+.monitor-label { color: #737b73; }
+.monitor-label span:nth-child(2) { letter-spacing: .06em; }
+.readout p, .transport p { color: #727a72; font-size: 14px; }
+
 .tempo-zone > p,
 .sense-zone > p {
   color: #555c56;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .08em;
+  font-size: 14px;
 }
 
 .volume-meter {
   width: min(230px, calc(100% - 22px));
   margin-top: 8px;
   margin-bottom: 16px;
+  height: 14px;
+  padding: 2px;
+  border: 2px solid #9ca29b;
+  border-radius: 5px;
+  background: repeating-linear-gradient(90deg, #252b26 0 3px, #303730 3px 5px);
+  box-shadow: inset 2px 2px 4px #111812, 1px 1px 0 #e7e9e2;
 }
 
 .sense-zone { padding-top: 28px; z-index: 3; }
-.sense-zone p { color: #626a62; }
+.sense-zone p { color: #626a62; font-size: 11px; }
 .fader {
   width: 12px;
   height: 262px;
@@ -944,12 +951,25 @@ body {
 }
 
 .mic-key {
-  width: 156px;
-  height: 32px;
+  width: 132px;
+  height: 28px;
   margin: 20px auto 0;
   color: #6f756e;
   font-size: 10px;
-  letter-spacing: .04em;
+  text-align: center;
+  padding: 0 3px;
+  margin-inline: auto;
+}
+
+.tempo-knob::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from -135deg, #687068 0deg 1.3deg, transparent 1.3deg 15deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 9px), #000 calc(100% - 8px) calc(100% - 5px), transparent calc(100% - 4px));
+  mask: radial-gradient(circle closest-side, transparent calc(100% - 9px), #000 calc(100% - 8px) calc(100% - 5px), transparent calc(100% - 4px));
+  pointer-events: none;
 }
 
 .hardware-key:focus-visible,
@@ -975,22 +995,21 @@ body {
 /* Keep the full instrument within the usable height on phones. */
 @media (max-width: 600px) {
   :root {
-    --phone-dial: clamp(112px, calc(35dvh - 85px), 180px);
-    --phone-monitor: clamp(88px, calc(25dvh - 27px), 156px);
+    --phone-dial: clamp(124px, calc(35dvh - 69px), 196px);
+    --phone-monitor: clamp(88px, calc(25dvh - 23px), 168px);
   }
 
   body { padding: 6px 8px; }
   .console {
     width: min(412px, calc(100vw - 16px));
-    padding: 12px 16px 28px;
+    padding: 12px 16px clamp(36px, 5dvh, 54px);
   }
   .console::before, .console::after { bottom: 7px; }
   .title-lcd { height: 35px; padding: 8px 10px; }
   .monitor-label { height: 30px; padding-top: 6px; }
   .monitor { height: var(--phone-monitor); }
-  .monitor-foot { height: 12px; padding: 2px 8px; }
-  .control-row { margin-top: 10px; }
-  .volume-meter { margin-top: 5px; margin-bottom: 8px; }
+  .control-row { margin-top: 14px; }
+  .volume-meter { margin-top: 5px; margin-bottom: 12px; }
   .tempo-knob { width: var(--phone-dial); height: var(--phone-dial); }
   .tempo-knob #knobOrbit {
     width: 100%;
@@ -1003,14 +1022,10 @@ body {
   }
   .sense-zone { padding-top: 25px; }
   .fader { height: calc(var(--phone-dial) + 30px); }
-  .readout-row { margin-top: -20px; }
-  .transport { margin-top: 12px; gap: 10px; }
+  .readout-row { margin-top: 0; }
+  .transport { margin-top: 14px; gap: 10px; }
   .hardware-key, .start-key { height: 60px; }
-  .mic-key { height: 30px; margin-top: 14px; }
-}
-
-@media (max-width: 360px) {
-  .readout-row { margin-top: -12px; }
+  .mic-key { height: 27px; margin-top: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
