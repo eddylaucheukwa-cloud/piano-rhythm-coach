@@ -485,26 +485,25 @@ button {
   height: 48px;
   padding: 0;
   overflow: hidden;
-  border: 2px solid #454b47;
-  border-radius: 4px;
+  border: 2px solid #292f2b;
+  border-radius: 2px;
   cursor: ns-resize;
   touch-action: none;
-  background: #373c39;
+  background: #202622;
   box-shadow:
-    1px 2px 0 #737970,
-    1px 4px 3px rgba(53, 58, 52, .45),
-    inset 0 2px 3px #202522;
+    0 0 0 1px #aeb4ad,
+    1px 2px 0 #656c65;
 }
 
 .notes-wheel-face {
   position: absolute;
-  inset: 2px 1px;
-  border-radius: 6px;
+  inset: 1px;
+  border-radius: 1px;
   background:
     linear-gradient(90deg, rgba(25, 31, 28, .7), rgba(255, 255, 255, .18) 40%, transparent 65%, rgba(25, 31, 28, .7)),
     repeating-linear-gradient(to bottom, #565d58 0px, #aeb6af 2px, #edf0eb 4px, #bfc6bf 6px, #59615b 8px);
   background-position: 0 0, 0 var(--wheel-position, 0px);
-  box-shadow: inset 0 0 2px #fff;
+  box-shadow: inset 1px 0 #f4f6f2, inset -1px 0 #343b36;
   transition: background-position 130ms ease-out;
   pointer-events: none;
 }
