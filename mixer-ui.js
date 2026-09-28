@@ -334,11 +334,12 @@ function fitPhonePanel() {
 
   const bodyStyle = getComputedStyle(document.body);
   const outerSpace = parseFloat(bodyStyle.paddingTop) + parseFloat(bodyStyle.paddingBottom);
-  const available = (window.visualViewport?.height ?? window.innerHeight) - outerSpace - 2;
+  const available = (window.visualViewport?.height ?? window.innerHeight) - outerSpace - 5;
   const scale = Math.min(1, available / consolePanel.getBoundingClientRect().height);
   if (scale < 1) consolePanel.style.zoom = String(scale);
 }
 fitPhonePanel();
+document.fonts?.ready.then(fitPhonePanel);
 window.addEventListener("resize", fitPhonePanel);
 window.visualViewport?.addEventListener("resize", fitPhonePanel);
 // =========================

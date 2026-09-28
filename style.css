@@ -275,11 +275,14 @@ button {
 .step-buttons button {
     width: 18px;
     height: 18px;
-    border: 0;
+    padding: 0;
+    border: 1px solid #bfc5bd;
     border-radius: 3px;
-    background: #e7e7e4;
-    color: #777;
-    box-shadow: 1px 2px 2px #777
+    background: linear-gradient(145deg, #f8f9f4, #d5d9d1);
+    color: #777e75;
+    font-size: 15px;
+    line-height: 1;
+    box-shadow: 0 2px 0 #858b82, inset 1px 1px 0 #fff
 }
 
 
@@ -498,7 +501,7 @@ button {
   height: 49px;
   padding: 4px 2px;
 
-  border: 1px solid #343434;
+  border: 1px solid #4b514b;
   border-radius: 2px;
   cursor: ns-resize;
   touch-action: none;
@@ -506,17 +509,18 @@ button {
   background:
     linear-gradient(
       90deg,
-      #5f5f5f 0%,
-      #d4d4d4 20%,
-      #eeeeee 50%,
-      #a0a0a0 80%,
-      #454545 100%
+      #414642 0%,
+      #b2b5af 14%,
+      #f5f6f2 43%,
+      #e5e7e2 60%,
+      #7a7e78 85%,
+      #303330 100%
     );
 
   box-shadow:
-    1px 2px 2px rgba(78, 78, 78, 0.7),
-    inset 1px 1px 1px rgba(255, 255, 255, 0.8),
-    inset -1px -1px 1px rgba(0, 0, 0, 0.35);
+    1px 3px 0 #737970,
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 1px #3b3f3b;
 
   transition:
     transform 90ms ease,
@@ -888,21 +892,20 @@ body {
 .tempo-zone > p,
 .sense-zone > p,
 .readout p,
-.transport p,
-.mic-key {
+.transport p {
   font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: .1em;
+  color: #8c918a;
+  text-shadow: 0 -1px 0 rgba(70, 74, 70, .26), 0 1px 0 rgba(255, 255, 255, .4);
 }
 
-.monitor-label { color: #737b73; }
 .monitor-label span:nth-child(2) { letter-spacing: .06em; }
-.readout p, .transport p { color: #727a72; font-size: 14px; }
+.readout p, .transport p { font-size: 15px; }
 
 .tempo-zone > p,
 .sense-zone > p {
-  color: #555c56;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .volume-meter {
@@ -918,7 +921,7 @@ body {
 }
 
 .sense-zone { padding-top: 28px; z-index: 3; }
-.sense-zone p { color: #626a62; font-size: 11px; }
+.sense-zone p { font-size: 11px; }
 .fader {
   width: 12px;
   height: 262px;
@@ -955,21 +958,19 @@ body {
   height: 28px;
   margin: 20px auto 0;
   color: #6f756e;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-weight: 500;
   font-size: 10px;
   text-align: center;
   padding: 0 3px;
   margin-inline: auto;
 }
 
-.tempo-knob::before {
-  content: "";
-  position: absolute;
-  inset: -7px;
-  border-radius: 50%;
-  background: repeating-conic-gradient(from -135deg, #687068 0deg 1.3deg, transparent 1.3deg 15deg);
-  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 9px), #000 calc(100% - 8px) calc(100% - 5px), transparent calc(100% - 4px));
-  mask: radial-gradient(circle closest-side, transparent calc(100% - 9px), #000 calc(100% - 8px) calc(100% - 5px), transparent calc(100% - 4px));
-  pointer-events: none;
+.step-buttons button:active,
+.step-buttons button.is-pressed {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #858b82, inset 1px 2px 3px rgba(78, 83, 77, .26);
+  filter: none;
 }
 
 .hardware-key:focus-visible,
@@ -1002,7 +1003,7 @@ body {
   body { padding: 6px 8px; }
   .console {
     width: min(412px, calc(100vw - 16px));
-    padding: 12px 16px clamp(36px, 5dvh, 54px);
+    padding: 12px 16px clamp(34px, 5dvh, 54px);
   }
   .console::before, .console::after { bottom: 7px; }
   .title-lcd { height: 35px; padding: 8px 10px; }
