@@ -398,8 +398,7 @@ button {
 }
 .hardware-key,
 .mic-key,
-.step-buttons button,
-.notes-wheel {
+.step-buttons button {
   transition:
     transform 80ms ease,
     box-shadow 80ms ease,
@@ -408,8 +407,7 @@ button {
 
 .hardware-key:not(:disabled):active,
 .mic-key:active,
-.step-buttons button:active,
-.notes-wheel:active {
+.step-buttons button:active {
   transform: translateY(4px);
   box-shadow:
     0 2px 0 #767874,
@@ -480,72 +478,48 @@ button {
 /* NOTES 右側的實體直立滾輪 */
 .notes-wheel {
   position: absolute;
-  top: 27px;
+  top: 20px;
   left: 75px;
 
-  width: 17px;
-  height: 34px;
+  width: 20px;
+  height: 48px;
   padding: 0;
-
-  border: 2px solid #3c403d;
-  border-radius: 2px;
+  overflow: hidden;
+  border: 2px solid #454b47;
+  border-radius: 4px;
   cursor: ns-resize;
   touch-action: none;
-
-  background:
-    linear-gradient(90deg, rgba(35, 39, 35, .65), rgba(255, 255, 255, .45) 27%, transparent 55%, rgba(37, 41, 37, .5)),
-    repeating-linear-gradient(to bottom, #c5c9c3 0 2px, #f4f5f1 2px 4px, #797e78 4px 5px, #b9beb8 5px 6px);
-
+  background: #373c39;
   box-shadow:
     1px 2px 0 #737970,
     1px 4px 3px rgba(53, 58, 52, .45),
-    inset 1px 0 #fff,
-    inset -1px 0 #343834;
-
-  transition:
-    transform 90ms ease,
-    box-shadow 90ms ease;
+    inset 0 2px 3px #202522;
 }
 
-.notes-wheel::before,
+.notes-wheel-face {
+  position: absolute;
+  inset: 2px 1px;
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgba(25, 31, 28, .7), rgba(255, 255, 255, .18) 40%, transparent 65%, rgba(25, 31, 28, .7)),
+    repeating-linear-gradient(to bottom, #565d58 0px, #aeb6af 2px, #edf0eb 4px, #bfc6bf 6px, #59615b 8px);
+  background-position: 0 0, 0 var(--wheel-position, 0px);
+  box-shadow: inset 0 0 2px #fff;
+  transition: background-position 130ms ease-out;
+  pointer-events: none;
+}
+
+.notes-wheel.is-dragging .notes-wheel-face { transition: none; }
+
 .notes-wheel::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  height: 2px;
-  background: #353a35;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, rgba(29, 34, 30, .75), transparent 23%, transparent 77%, rgba(29, 34, 30, .75));
   pointer-events: none;
-}
-
-.notes-wheel::before { top: 0; }
-.notes-wheel::after { bottom: 0; }
-
-.notes-wheel:active {
-  transform: translateY(2px);
-  box-shadow:
-    0 1px 1px rgba(78, 78, 78, 0.7),
-    inset 2px 2px 3px rgba(50, 50, 50, 0.38);
-}
-
-.notes-wheel.bump-up {
-  animation: wheel-up 160ms ease-out;
-}
-
-.notes-wheel.bump-down {
-  animation: wheel-down 160ms ease-out;
-}
-
-@keyframes wheel-up {
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-@keyframes wheel-down {
-  50% {
-    transform: translateY(5px);
-  }
 }
 
 /* 手機版：不顯示 Figma 以外的舊結果清單 */

@@ -71,6 +71,7 @@ function changeRhythm(delta) {
 }
 // NOTES wheel：限制震動頻率，避免連續移動時互相中斷
 let lastNotesHapticTime = 0;
+let wheelPosition = 0;
 
 function notesHapticFeedback() {
   const now = Date.now();
@@ -94,9 +95,8 @@ function changeNotes(delta) {
 notesHapticFeedback();
 animateNumber(eventDigits, delta);
 
-  wheel.classList.remove("bump-up", "bump-down");
-  void wheel.offsetWidth;
-  wheel.classList.add(delta > 0 ? "bump-up" : "bump-down");
+  wheelPosition -= delta * 6;
+  wheel.style.setProperty("--wheel-position", `${wheelPosition}px`);
   syncMixer();
 }
 
@@ -179,10 +179,13 @@ tempoKnob.addEventListener("keydown", (event) => {
 
 let wheelStartY;
 let wheelStartValue;
+let wheelStartPosition;
 
 wheel.addEventListener("pointerdown", (event) => {
   wheelStartY = event.clientY;
   wheelStartValue = Number(totalNotes.value);
+  wheelStartPosition = wheelPosition;
+  wheel.classList.add("is-dragging");
   wheel.setPointerCapture(event.pointerId);
 });
 
@@ -195,11 +198,15 @@ wheel.addEventListener("pointermove", (event) => {
   );
 
   changeNotes(next - Number(totalNotes.value));
+  wheel.style.setProperty("--wheel-position", `${wheelStartPosition + (event.clientY - wheelStartY) * 0.375}px`);
 });
 
 ["pointerup", "pointercancel"].forEach((eventName) => {
   wheel.addEventListener(eventName, () => {
+    if (wheelStartY === undefined) return;
+    wheelPosition = Number.parseFloat(wheel.style.getPropertyValue("--wheel-position")) || 0;
     wheelStartY = undefined;
+    wheel.classList.remove("is-dragging");
   });
 });
 
