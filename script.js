@@ -62,6 +62,7 @@ const timingChartContext = timingChart.getContext("2d");
 let isPracticeRunning = false;
 let practiceStartTime = 0;
 let practiceTimer = null;
+let playbackLightOffTimer = null;
 let lastOnsetTime = 0;
 let previousVolume = 0;
 
@@ -1365,13 +1366,26 @@ function startPracticeMetronome() {
   const bpm = Number(bpmSlider.value);
   const intervalMs = 60000 / bpm;
 
-  beat();
-  practiceTimer = setInterval(beat, intervalMs);
+  function practiceBeat() {
+    beat();
+    playbackButton.classList.add("beat-flash");
+    clearTimeout(playbackLightOffTimer);
+    playbackLightOffTimer = setTimeout(() => {
+      playbackButton.classList.remove("beat-flash");
+      playbackLightOffTimer = null;
+    }, intervalMs / 2);
+  }
+
+  practiceBeat();
+  practiceTimer = setInterval(practiceBeat, intervalMs);
 }
 
 function stopPracticeMetronome() {
   clearInterval(practiceTimer);
   practiceTimer = null;
+  clearTimeout(playbackLightOffTimer);
+  playbackLightOffTimer = null;
+  playbackButton.classList.remove("beat-flash");
 }
 
 function startPractice() {

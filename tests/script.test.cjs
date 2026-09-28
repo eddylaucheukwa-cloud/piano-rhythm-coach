@@ -6,7 +6,9 @@ const vm = require('node:vm');
 function loadApp(calibration = null) {
   const elements = new Map();
   const intervals = new Map();
+  const timeouts = new Map();
   let nextInterval = 0;
+  let nextTimeout = 0;
   const canvasContext = new Proxy({}, { get: (target, key) => target[key] ?? (() => {}) });
   function element(id) {
     if (!elements.has(id)) {
@@ -51,15 +53,42 @@ function loadApp(calibration = null) {
     performance: { now: () => 1000 },
     setInterval(callback, delay) { intervals.set(++nextInterval, { callback, delay }); return nextInterval; },
     clearInterval(id) { intervals.delete(id); },
-    setTimeout: () => 1,
-    clearTimeout() {}, requestAnimationFrame() {}, cancelAnimationFrame() {},
+    setTimeout(callback, delay) {
+      const id = ++nextTimeout;
+      timeouts.set(id, { callback, delay });
+      return id;
+    },
+    clearTimeout(id) { timeouts.delete(id); },
+    requestAnimationFrame() {}, cancelAnimationFrame() {},
     AudioContext: FakeAudioContext, MediaRecorder: FakeRecorder,
     URL: { createObjectURL: () => 'blob:test' }, Blob,
     console: { log() {}, error() {} },
   });
   vm.runInContext(fs.readFileSync(require.resolve('../script.js'), 'utf8'), context);
-  return { context, elements, intervals, element };
+  return { context, elements, intervals, timeouts, element };
 }
+
+test('playback light pulses on each metronome beat', () => {
+  const app = loadApp();
+  app.element('bpm').value = '150';
+  vm.runInContext('microphoneStream = {}; previousFrequencyData = new Uint8Array(4)', app.context);
+
+  app.element('startPracticeButton').click();
+  const playback = app.element('playbackButton');
+  const practiceBeat = [...app.intervals.values()][0];
+  assert.equal(practiceBeat.delay, 400);
+  assert.equal(playback.classList.contains('beat-flash'), true);
+
+  const lightOff = [...app.timeouts.values()].find(({ delay }) => delay === 200);
+  assert.ok(lightOff);
+  lightOff.callback();
+  assert.equal(playback.classList.contains('beat-flash'), false);
+
+  practiceBeat.callback();
+  assert.equal(playback.classList.contains('beat-flash'), true);
+  app.element('stopPracticeButton').click();
+  assert.equal(playback.classList.contains('beat-flash'), false);
+});
 
 test('pressing Start twice keeps one metronome and Stop clears it', () => {
   const app = loadApp();

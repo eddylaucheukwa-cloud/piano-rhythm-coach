@@ -243,25 +243,11 @@ button {
 }
 
 @keyframes up {
-    from {
-        transform: translateY(11px);
-        filter: brightness(2)
-    }
-
-    to {
-        transform: none
-    }
+    40% { transform: translateY(-9px); filter: brightness(2) }
 }
 
 @keyframes down {
-    from {
-        transform: translateY(-11px);
-        filter: brightness(2)
-    }
-
-    to {
-        transform: none
-    }
+    40% { transform: translateY(9px); filter: brightness(2) }
 }
 
 .step-buttons {
@@ -821,19 +807,12 @@ button {
   background: #f54444 !important;
   box-shadow: none !important;
   filter: none !important;
-  animation: playback-recording-blink 0.8s step-end infinite !important;
+  opacity: .25;
+  animation: none !important;
 }
 
-@keyframes playback-recording-blink {
-  0%,
-  45% {
-    opacity: 1;
-  }
-
-  46%,
-  100% {
-    opacity: 0.25;
-  }
+.playback-key.lamp-recording.beat-flash .playback-icon {
+  opacity: 1;
 }
 
 /* Control surface refresh: retain the original instrument and display. */
