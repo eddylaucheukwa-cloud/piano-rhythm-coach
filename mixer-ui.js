@@ -95,7 +95,7 @@ function changeNotes(delta) {
 notesHapticFeedback();
 animateNumber(eventDigits, delta);
 
-  wheelPosition -= delta * 6;
+  wheelPosition -= delta * 8;
   wheel.style.setProperty("--wheel-position", `${wheelPosition}px`);
   syncMixer();
 }
@@ -198,15 +198,16 @@ wheel.addEventListener("pointermove", (event) => {
   );
 
   changeNotes(next - Number(totalNotes.value));
-  wheel.style.setProperty("--wheel-position", `${wheelStartPosition + (event.clientY - wheelStartY) * 0.375}px`);
+  wheel.style.setProperty("--wheel-position", `${wheelStartPosition + (event.clientY - wheelStartY) * 0.5}px`);
 });
 
 ["pointerup", "pointercancel"].forEach((eventName) => {
   wheel.addEventListener(eventName, () => {
     if (wheelStartY === undefined) return;
-    wheelPosition = Number.parseFloat(wheel.style.getPropertyValue("--wheel-position")) || 0;
+    wheelPosition = wheelStartPosition - (Number(totalNotes.value) - wheelStartValue) * 8;
     wheelStartY = undefined;
     wheel.classList.remove("is-dragging");
+    wheel.style.setProperty("--wheel-position", `${wheelPosition}px`);
   });
 });
 
