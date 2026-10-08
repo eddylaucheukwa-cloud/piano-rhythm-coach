@@ -13,6 +13,20 @@ const MIN = 40;
 const MAX = 180;
 const START = -135;
 const END = 135;
+let tempoPreviewTimer = null;
+
+function hideTempoPreview() {
+  clearTimeout(tempoPreviewTimer);
+  tempoPreviewTimer = null;
+  coachConsole.classList.remove("tempo-adjusting");
+}
+
+function showTempoPreview() {
+  hideTempoPreview();
+  if (mode !== "idle" || isTestMode || isPlayMode || bpmSlider.disabled) return;
+  coachConsole.classList.add("tempo-adjusting");
+  if (!tempoDragActive) tempoPreviewTimer = setTimeout(hideTempoPreview, 800);
+}
 
 function animateNumber(element, direction) {
   element.classList.remove("roll-up", "roll-down");
@@ -21,6 +35,7 @@ function animateNumber(element, direction) {
 }
 
 function syncMixer() {
+  if (mode !== "idle" || isTestMode || isPlayMode || bpmSlider.disabled) hideTempoPreview();
   const bpm = mode === "calibrating" || mode === "calibration-result"
     ? CALIBRATION_BPM : isPlayMode ? playState.bpm : Number(bpmSlider.value);
   const ratio = Math.max(0, Math.min(1, (bpm - MIN) / (MAX - MIN)));
@@ -127,6 +142,7 @@ tempoKnob.addEventListener("pointerdown", (event) => {
   if (bpmSlider.disabled) return;
   event.preventDefault();
   tempoDragActive = true;
+  showTempoPreview();
   lastTempoPointerAngle = getPointerAngle(event, tempoKnob);
   tempoKnob.setPointerCapture(event.pointerId);
 });
@@ -167,7 +183,10 @@ setTempo(Number(bpmSlider.value) + curvedChange);
 
 ["pointerup", "pointercancel", "lostpointercapture"].forEach((eventName) => {
   tempoKnob.addEventListener(eventName, () => {
+    if (!tempoDragActive) return;
     tempoDragActive = false;
+    if (eventName === "pointerup") showTempoPreview();
+    else hideTempoPreview();
   });
 });
 
@@ -292,6 +311,7 @@ playback.addEventListener("click", () => {
 
 
 bpmSlider.addEventListener("input", syncMixer);
+bpmSlider.addEventListener("input", showTempoPreview);
 notesPerBeat.addEventListener("input", syncMixer);
 totalNotes.addEventListener("input", syncMixer);
 onsetThresholdSlider.addEventListener("input", syncMixer);

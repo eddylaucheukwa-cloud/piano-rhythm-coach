@@ -345,6 +345,7 @@ function beat() {
 }
 
 function startMetronome() {
+  window.hideTempoPreview?.();
   const bpm = Number(bpmSlider.value);
   const intervalMs = 60000 / bpm;
   beat();
@@ -804,6 +805,7 @@ function startCalibration() {
   } = schedule;
 
 mode = "calibrating";
+window.hideTempoPreview?.();
 coachConsole.classList.remove("test-mode", "test-results", "play-mode", "play-results");
 
 bpmMonitor.style.color = "#72ff9a";
@@ -1671,6 +1673,7 @@ timingWindowMs = Math.max(
   Math.min(noteIntervalMs * 0.46, 180)
 );
   mode = "practice";
+window.hideTempoPreview?.();
 isPracticeRunning = true;
 coachConsole.classList.toggle("test-mode", isTestMode);
 coachConsole.classList.toggle("play-mode", isPlayMode);

@@ -559,11 +559,15 @@ button {
 
 .test-mode:not(.test-results) #timingChart,
 .test-mode:not(.test-results) #practiceScore,
-.test-mode:not(.test-results) #noteLight {
+.test-mode:not(.test-results) #noteLight,
+.tempo-adjusting #timingChart,
+.tempo-adjusting #practiceScore,
+.tempo-adjusting #noteLight {
   visibility: hidden;
 }
 
-.test-mode:not(.test-results) .bpm-monitor {
+.test-mode:not(.test-results) .bpm-monitor,
+.tempo-adjusting .bpm-monitor {
   inset: 0;
   display: flex;
   align-items: center;
