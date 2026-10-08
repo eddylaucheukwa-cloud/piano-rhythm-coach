@@ -113,7 +113,7 @@ function setCoachMode(nextMode) {
   }
   window.syncMixer?.();
   practiceStatus.textContent = isPlayMode
-    ? "Play mode: follow each random four-beat pattern. Every two loops adds 5 BPM."
+    ? "Play mode: each four-beat pattern has a two-beat buffer. Every four loops adds 5 BPM."
     : isTestMode
     ? "Test mode: 4-beat count-in, then keep the rhythm without clicks."
     : "Practice mode: metronome and live timing chart.";
@@ -1304,6 +1304,7 @@ function createPlayState() {
     scheduledBeat: -4,
     currentBeat: -1,
     countInBeat: 0,
+    bufferBeat: 0,
     nextBeatTime: 0,
     detectedNotes: 0,
     latestEvent: null
@@ -1334,24 +1335,31 @@ function createPlayEvents(loopStartTime, pattern, bpm, loopNumber) {
 
 function renderPlayMode() {
   if (!playState) return;
+  const displayedPattern = playState.pattern;
+  const displayedLoop = playState.bufferBeat > 0 ? playState.completedLoops : playState.completedLoops + 1;
   playDigits.forEach((digit, index) => {
-    const text = String(playState.pattern[index]);
+    const text = String(displayedPattern[index]);
     if (digit.textContent !== text) digit.textContent = text;
     digit.classList.toggle("active", isPracticeRunning && playState.currentBeat === index);
+    const beatEvents = expectedEvents.filter(event => event.loop === displayedLoop && event.beatIndex === index);
+    const missed = beatEvents.some(event => event.result === "Missed");
+    digit.classList.toggle("timing-missed", missed);
+    digit.classList.toggle("timing-warning", !missed && beatEvents.some(event => event.result === "Early" || event.result === "Late"));
   });
-  const patternText = playState.pattern.join("");
+  const patternText = displayedPattern.join("");
   if (playState.announcedPattern !== patternText) {
-    playPattern.setAttribute("aria-label", `Four beats: ${playState.pattern.join(", ")} notes per beat`);
+    playPattern.setAttribute("aria-label", `Four beats: ${displayedPattern.join(", ")} notes per beat`);
     playState.announcedPattern = patternText;
   }
   playProgress.textContent = !isPracticeRunning
     ? "READY · 4-BEAT COUNT-IN"
     : playState.scheduledBeat <= 0
       ? `COUNT-IN ${playState.countInBeat} / 4`
-      : `LOOP ${String(playState.completedLoops + 1).padStart(2, "0")} · LEVEL ${Math.floor(playState.completedLoops / 2) + 1}`;
+      : playState.bufferBeat > 0 ? `BUFFER ${playState.bufferBeat} / 2`
+        : `LOOP ${String(playState.completedLoops + 1).padStart(2, "0")} · LEVEL ${(playState.bpm - 60) / 5 + 1}`;
   playNext.textContent = `NEXT ${playState.nextPattern.join("")}`;
   const latest = playState.latestEvent;
-  playFeedback.textContent = !latest
+  playFeedback.textContent = playState.bufferBeat > 0 ? "REST · PREPARE NEXT PATTERN" : !latest
     ? "EACH DIGIT = NOTES IN ONE BEAT"
     : latest.result === "Missed" ? "MISSED NOTE · KEEP GOING"
       : `${latest.result.toUpperCase()} ${latest.offsetMs >= 0 ? "+" : ""}${Math.round(latest.offsetMs)} MS`;
@@ -1369,13 +1377,12 @@ function advancePlayMode() {
   if (!isPlayMode || !isPracticeRunning) return;
   const now = performance.now();
   while (playState.nextBeatTime <= now) {
-    if (playState.scheduledBeat > 0 && playState.scheduledBeat % 4 === 0) {
-      playState.completedLoops++;
-      playState.bpm = 60 + Math.floor(playState.completedLoops / 2) * 5;
+    if (playState.scheduledBeat > 0 && playState.scheduledBeat % 6 === 0) {
+      playState.bpm = 60 + Math.floor(playState.completedLoops / 4) * 5;
       playState.pattern = playState.nextPattern;
       playState.nextPattern = randomPlayPattern();
-      const nextBpm = 60 + Math.floor((playState.completedLoops + 1) / 2) * 5;
-      createPlayEvents(playState.nextBeatTime + 4 * 60000 / playState.bpm,
+      const nextBpm = 60 + Math.floor((playState.completedLoops + 1) / 4) * 5;
+      createPlayEvents(playState.nextBeatTime + 6 * 60000 / playState.bpm,
         playState.nextPattern, nextBpm, playState.completedLoops + 2);
     }
     const beatIntervalMs = 60000 / playState.bpm;
@@ -1384,7 +1391,10 @@ function advancePlayMode() {
     if (playState.scheduledBeat < 0) {
       playState.countInBeat = playState.scheduledBeat + 5;
     } else {
-      playState.currentBeat = playState.scheduledBeat % 4;
+      const beatInLoop = playState.scheduledBeat % 6;
+      if (beatInLoop === 4) playState.completedLoops++;
+      playState.currentBeat = beatInLoop < 4 ? beatInLoop : -1;
+      playState.bufferBeat = beatInLoop >= 4 ? beatInLoop - 3 : 0;
     }
     // Delayed browser frames must not replay a burst of old clicks.
     if (now - playState.nextBeatTime < beatIntervalMs / 2) {
@@ -1691,7 +1701,7 @@ window.updateTransportLamps?.();
     expectedEvents = [];
     createPlayEvents(practiceStartTime + 4000, playState.pattern, 60, 1);
     // Prepare the next loop in advance so its first note can be matched early.
-    createPlayEvents(practiceStartTime + 8000, playState.nextPattern, 60, 2);
+    createPlayEvents(practiceStartTime + 10000, playState.nextPattern, 60, 2);
   } else {
     createExpectedEvents();
   }

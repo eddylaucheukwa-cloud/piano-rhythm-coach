@@ -599,9 +599,11 @@ button {
 }
 .play-pattern span.active {
   opacity: 1;
-  border-bottom-color: var(--green);
-  text-shadow: 0 0 6px rgba(114, 255, 154, .45);
+  border-bottom-color: currentColor;
+  text-shadow: 0 0 6px currentColor;
 }
+.play-pattern span.timing-warning { color: #f6c453; opacity: 1; }
+.play-pattern span.timing-missed { color: #f54444; opacity: 1; }
 #playFeedback { font-size: 11px; }
 #playNext { text-align: left; font-size: 11px; }
 .play-mode:not(.play-results) .play-display { display: flex; }
@@ -609,8 +611,6 @@ button {
 .play-mode .tempo-knob,
 .play-mode .notes-wheel,
 .play-mode .step-buttons { cursor: default; }
-.play-mode .notes-wheel,
-.play-mode .step-buttons { opacity: .45; }
 
 .title-lcd:focus-visible {
   outline: 3px solid #267d48;

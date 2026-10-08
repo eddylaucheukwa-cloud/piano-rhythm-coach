@@ -339,21 +339,29 @@ test('2341 schedules 2, 3, 4, and 1 evenly spaced notes after a four-beat 60 BPM
   assert.equal(app.element('playBeat1').classList.contains('active'), true);
 });
 
-test('play mode generates a new pattern each cycle and increases tempo only after two complete cycles', () => {
+test('play mode generates a new pattern each cycle and increases tempo after four cycles and their buffers', () => {
   const app = loadApp();
   startPlay(app);
   vm.runInContext('Math.random = () => 0', app.context);
-  app.context.performance.now = () => 9000;
+  app.context.performance.now = () => 11000;
   vm.runInContext('advancePlayMode()', app.context);
   assert.equal(vm.runInContext('playState.completedLoops', app.context), 1);
   assert.equal(vm.runInContext('playState.bpm', app.context), 60);
   assert.equal(vm.runInContext('playState.nextPattern.join("")', app.context), '1111');
-  app.context.performance.now = () => 13000;
+  app.context.performance.now = () => 17000;
   vm.runInContext('advancePlayMode()', app.context);
   assert.equal(vm.runInContext('playState.completedLoops', app.context), 2);
-  assert.equal(vm.runInContext('playState.bpm', app.context), 65);
+  assert.equal(vm.runInContext('playState.bpm', app.context), 60);
   assert.equal(vm.runInContext('playState.pattern.join("")', app.context), '1111');
-  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 3).time', app.context), 13000);
+  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 3).time', app.context), 17000);
+  app.context.performance.now = () => 27000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.completedLoops', app.context), 4);
+  assert.equal(vm.runInContext('playState.bpm', app.context), 60);
+  app.context.performance.now = () => 29000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.bpm', app.context), 65);
+  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 5).time', app.context), 29000);
   assert.equal(vm.runInContext('isPracticeRunning', app.context), true);
 });
 
@@ -379,33 +387,33 @@ test('the upcoming play loop is ready to match an early first note before the lo
   const app = loadApp();
   startPlay(app);
   vm.runInContext('expectedEvents.filter(event => event.loop === 1).forEach(event => {event.result = "Missed"})', app.context);
-  app.context.performance.now = () => 8900;
-  vm.runInContext('advancePlayMode(); matchSoundToExpectedEvent(8900)', app.context);
+  app.context.performance.now = () => 10900;
+  vm.runInContext('advancePlayMode(); matchSoundToExpectedEvent(10900)', app.context);
   assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 2).result', app.context), 'Early');
-  assert.equal(vm.runInContext('playState.completedLoops', app.context), 0);
+  assert.equal(vm.runInContext('playState.completedLoops', app.context), 1);
 });
 
 test('play tempo continues increasing beyond the manual tempo control range', () => {
   const app = loadApp();
   startPlay(app);
-  for (let beat = 0; beat < 204; beat++) {
+  for (let beat = 0; beat < 604; beat++) {
     app.context.performance.now = () => vm.runInContext('playState.nextBeatTime', app.context);
     vm.runInContext('advancePlayMode()', app.context);
   }
-  assert.equal(vm.runInContext('playState.completedLoops', app.context), 50);
+  assert.equal(vm.runInContext('playState.completedLoops', app.context), 100);
   assert.equal(vm.runInContext('playState.bpm', app.context), 185);
   assert.equal(vm.runInContext('isPracticeRunning', app.context), true);
 });
 
 test('tempo increases do not change the timing window of an earlier delayed play note', () => {
-  const app = loadApp({offsetMs:1300});
+  const app = loadApp({offsetMs:3300});
   startPlay(app);
-  app.context.performance.now = () => 13410;
+  app.context.performance.now = () => 29410;
   vm.runInContext('advancePlayMode()', app.context);
   assert.equal(vm.runInContext('playState.bpm', app.context), 65);
-  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 2 && event.beatIndex === 3).result', app.context), null);
-  vm.runInContext('matchSoundToExpectedEvent(13410)', app.context);
-  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 2 && event.beatIndex === 3).result', app.context), 'Late');
+  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 4 && event.beatIndex === 3).result', app.context), null);
+  vm.runInContext('matchSoundToExpectedEvent(29410)', app.context);
+  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 4 && event.beatIndex === 3).result', app.context), 'Late');
 });
 
 test('calibration inside play mode restores the play screen after applying', () => {
@@ -415,4 +423,51 @@ test('calibration inside play mode restores the play screen after applying', () 
   vm.runInContext('mode="calibration-result";pendingCalibration={offsetMs:100};applyCalibration()', app.context);
   assert.equal(vm.runInContext('isPlayMode', app.context), true);
   assert.equal(app.element('coachConsole').classList.contains('play-mode'), true);
+});
+
+test('every play loop has exactly two buffer beats with no scheduled notes', () => {
+  const app = loadApp();
+  startPlay(app);
+  app.context.performance.now = () => 9000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.completedLoops', app.context), 1);
+  assert.equal(vm.runInContext('playState.currentBeat', app.context), -1);
+  assert.equal(app.element('playProgress').textContent, 'BUFFER 1 / 2');
+  assert.match(app.element('playFeedback').textContent, /REST/);
+  assert.equal(vm.runInContext('expectedEvents.some(event => event.time >= 9000 && event.time < 11000)', app.context), false);
+  app.context.performance.now = () => 10000;
+  vm.runInContext('advancePlayMode(); matchSoundToExpectedEvent(10000)', app.context);
+  assert.equal(app.element('playProgress').textContent, 'BUFFER 2 / 2');
+  assert.equal(vm.runInContext('expectedEvents.filter(event => event.loop === 2).every(event => event.result === null)', app.context), true);
+  app.context.performance.now = () => 11000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.bufferBeat', app.context), 0);
+  assert.equal(vm.runInContext('playState.currentBeat', app.context), 0);
+  assert.equal(app.element('playBeat1').classList.contains('active'), true);
+});
+
+test('play beat digits turn yellow for early/late notes, red for misses, and retain results through the buffer', () => {
+  const app = loadApp();
+  startPlay(app);
+  const times = vm.runInContext('expectedEvents.filter(event => event.loop === 1).map(event => event.time)', app.context);
+  times.forEach((time,index) => {
+    if (index === 7) return;
+    const soundTime = time + (index === 1 ? -65 : index === 2 ? 65 : 0);
+    app.context.performance.now = () => soundTime;
+    vm.runInContext(`advancePlayMode(); matchSoundToExpectedEvent(${soundTime})`, app.context);
+  });
+  assert.equal(app.element('playBeat1').classList.contains('timing-warning'), true);
+  assert.equal(app.element('playBeat2').classList.contains('timing-warning'), true);
+  assert.equal(app.element('playBeat3').classList.contains('timing-missed'), true);
+  assert.equal(app.element('playBeat3').classList.contains('timing-warning'), false);
+  assert.equal(app.element('playBeat4').classList.contains('timing-warning'), false);
+  assert.equal(app.element('playBeat4').classList.contains('timing-missed'), false);
+  app.context.performance.now = () => 9000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(app.element('playBeat1').classList.contains('timing-warning'), true);
+  assert.equal(app.element('playBeat3').classList.contains('timing-missed'), true);
+  app.context.performance.now = () => 11000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(app.element('playBeat1').classList.contains('timing-warning'), false);
+  assert.equal(app.element('playBeat3').classList.contains('timing-missed'), false);
 });
