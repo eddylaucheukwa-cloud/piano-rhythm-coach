@@ -331,6 +331,12 @@ function haptic(pattern) {
   return navigator.vibrate(pattern);
 }
 
+[playback, startPracticeButton, stopPracticeButton].forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!button.disabled) haptic(25);
+  });
+});
+
 /* ---------- TEMPO：夾萬轉盤卡點 ---------- */
 
 let lastTempoHapticStep = Math.round(Number(bpmSlider.value) / 5);
