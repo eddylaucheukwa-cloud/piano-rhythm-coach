@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500&family=Share+Tech+Mono&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500&family=Doto:ROND,wght@100,800&family=Share+Tech+Mono&display=swap");
 
 :root {
     --panel: #c4c4c4;
@@ -69,7 +69,10 @@ button {
     background-image: radial-gradient(#2a2a2a 1px, transparent 1px);
     background-size: 4px 4px;
     color: var(--green);
-    font-size: 16px;
+    font-family: "Doto", "Share Tech Mono", monospace;
+    font-size: 18px;
+    font-weight: 800;
+    font-variation-settings: "ROND" 100;
     letter-spacing: 1px;
     box-shadow: inset 0 0 8px #000
 }
