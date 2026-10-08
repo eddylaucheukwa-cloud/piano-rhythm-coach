@@ -12,13 +12,21 @@
     <main id="coachConsole" class="console">
         <header id="modeTitle" class="title-lcd" tabindex="0" aria-label="Piano Rhythm Coach. Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode." title="Swipe left: Test mode · Swipe right: Practice mode">
             <div id="modeTitleTrack" class="mode-title-track" aria-hidden="true">
-                <span>PIANO RHYTHM COACH<i class="mode-swipe-hint">←</i></span><span>TEST MODE</span>
+                <span>PIANO RHYTHM COACH<i class="mode-swipe-hint">←</i></span><span>TEST MODE</span><span class="play-title">PLAY MODE</span>
             </div>
         </header>
         <section class="monitor-label"><span>MONITOR</span><span id="practiceScore">ACCURACY: --</span><i id="noteLight"
                 class="indicator" aria-label="Piano sound indicator"></i></section>
                 <section class="monitor">
         <canvas id="timingChart" width="372" height="205"></canvas>
+        <div class="play-display">
+            <p id="playProgress">READY · 4-BEAT COUNT-IN</p>
+            <output id="playPattern" class="play-pattern" aria-live="polite">
+                <span id="playBeat1">2</span><span id="playBeat2">3</span><span id="playBeat3">4</span><span id="playBeat4">1</span>
+            </output>
+            <p id="playFeedback">EACH DIGIT = NOTES IN ONE BEAT</p>
+            <p id="playNext">NEXT 1234</p>
+        </div>
         <output id="bpmMonitor" class="bpm-monitor">BPM 060</output>
         </section>
         <section class="control-row">

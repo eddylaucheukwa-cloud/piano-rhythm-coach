@@ -21,8 +21,9 @@ function animateNumber(element, direction) {
 }
 
 function syncMixer() {
-  const bpm = Number(bpmSlider.value);
-  const ratio = (bpm - MIN) / (MAX - MIN);
+  const bpm = mode === "calibrating" || mode === "calibration-result"
+    ? CALIBRATION_BPM : isPlayMode ? playState.bpm : Number(bpmSlider.value);
+  const ratio = Math.max(0, Math.min(1, (bpm - MIN) / (MAX - MIN)));
   const angle = START + ratio * (END - START);
 
 // 40 BPM 至 180 BPM：外層定位架由 0° 累積轉到 720°，即兩圈
@@ -37,13 +38,15 @@ knobOrbit.style.transform = `rotate(${knobRotation}deg)`;
 notch.style.transform = `rotate(${-knobRotation}deg)`;
   tempoKnob.setAttribute("aria-valuenow", bpm);
   tempoKnob.setAttribute("aria-label", `Tempo, ${bpm} BPM`);
+  tempoKnob.setAttribute("aria-valuemax", Math.max(MAX, bpm));
+  tempoKnob.setAttribute("aria-disabled", String(isPlayMode || bpmSlider.disabled));
 
   if (bpmMonitor) {
     bpmMonitor.textContent = `BPM ${String(bpm).padStart(3, "0")}`;
   }
 
-  rhythmDigits.textContent = String(notesPerBeat.value).padStart(2, "0");
-  eventDigits.textContent = String(totalNotes.value).padStart(2, "0");
+  rhythmDigits.textContent = String(isPlayMode ? playState.pattern[Math.max(0, playState.currentBeat)] : notesPerBeat.value).padStart(2, "0");
+  eventDigits.textContent = String(isPlayMode ? playState.detectedNotes : totalNotes.value).padStart(2, "0");
 
   const threshold = Number(onsetThresholdSlider.value);
   const travel = Math.max(0, sensitivityTrack.clientHeight - fader.offsetHeight);
@@ -121,6 +124,7 @@ let tempoDragActive = false;
 let lastTempoPointerAngle = 0;
 
 tempoKnob.addEventListener("pointerdown", (event) => {
+  if (bpmSlider.disabled) return;
   event.preventDefault();
   tempoDragActive = true;
   lastTempoPointerAngle = getPointerAngle(event, tempoKnob);
@@ -184,6 +188,7 @@ let wheelStartValue;
 let wheelStartPosition;
 
 wheel.addEventListener("pointerdown", (event) => {
+  if (totalNotes.disabled) return;
   wheelStartY = event.clientY;
   wheelStartValue = Number(totalNotes.value);
   wheelStartPosition = wheelPosition;

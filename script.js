@@ -69,20 +69,68 @@ const coachConsole = document.getElementById("coachConsole");
 const modeTitle = document.getElementById("modeTitle");
 const modeTitleTrack = document.getElementById("modeTitleTrack");
 let isTestMode = false;
+let isPlayMode = false;
+let secretSwipeCount = 0;
+let playState = null;
+let playTimer = null;
+const playDigits = [1, 2, 3, 4].map(index => document.getElementById(`playBeat${index}`));
+const playPattern = document.getElementById("playPattern");
+const playProgress = document.getElementById("playProgress");
+const playFeedback = document.getElementById("playFeedback");
+const playNext = document.getElementById("playNext");
 let testProgressTimer = null;
 let titleSwipe = null;
 
 function setTestMode(enabled) {
+  setCoachMode(enabled ? "test" : "practice");
+}
+
+function modeTitleOffset() {
+  return `${-(isPlayMode ? 2 : isTestMode ? 1 : 0) * 100 / 3}%`;
+}
+
+function setCoachMode(nextMode) {
   if (mode !== "idle" || isPracticeRunning) return;
-  isTestMode = enabled;
-  coachConsole.classList.toggle("test-mode", enabled);
-  coachConsole.classList.remove("test-results");
-  modeTitle.style.setProperty("--mode-offset", enabled ? "-50%" : "0%");
-  modeTitle.setAttribute("aria-label", (enabled ? "Test mode." : "Piano Rhythm Coach.") +
-    " Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode.");
-  practiceStatus.textContent = enabled
+  isTestMode = nextMode === "test";
+  isPlayMode = nextMode === "play";
+  secretSwipeCount = 0;
+  coachConsole.classList.toggle("test-mode", isTestMode);
+  coachConsole.classList.toggle("play-mode", isPlayMode);
+  coachConsole.classList.toggle("play-unlocked", isPlayMode);
+  coachConsole.classList.remove("test-results", "play-results");
+  modeTitle.style.setProperty("--mode-offset", modeTitleOffset());
+  modeTitle.setAttribute("aria-label", (isPlayMode ? "Play mode." : isTestMode ? "Test mode." : "Piano Rhythm Coach.") +
+    (isPlayMode ? " Swipe right or press right arrow to return to test mode."
+      : " Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode."));
+  startPracticeButton.setAttribute("aria-label", isPlayMode ? "Start play mode" : isTestMode ? "Start test" : "Start practice");
+  bpmSlider.disabled = isPlayMode;
+  notesPerBeat.disabled = isPlayMode;
+  totalNotes.disabled = isPlayMode;
+  if (isPlayMode) {
+    playState = createPlayState();
+    expectedEvents = [];
+    renderPlayMode();
+  }
+  window.syncMixer?.();
+  practiceStatus.textContent = isPlayMode
+    ? "Play mode: follow each random four-beat pattern. Every two loops adds 5 BPM."
+    : isTestMode
     ? "Test mode: 4-beat count-in, then keep the rhythm without clicks."
     : "Practice mode: metronome and live timing chart.";
+}
+
+function switchModeBySwipe(left) {
+  if (mode !== "idle" || isPracticeRunning) return;
+  if (!left) {
+    if (isPlayMode) setCoachMode("test");
+    else if (isTestMode) setCoachMode("practice");
+  } else if (isTestMode) {
+    secretSwipeCount++;
+    coachConsole.classList.toggle("play-unlocked", secretSwipeCount >= 2);
+    if (secretSwipeCount === 3) setCoachMode("play");
+  } else if (!isPlayMode) {
+    setCoachMode("test");
+  }
 }
 
 modeTitle.addEventListener("pointerdown", (event) => {
@@ -94,7 +142,7 @@ modeTitle.addEventListener("pointerdown", (event) => {
     width: rect.width, position, startedAt: performance.now()
   };
   modeTitle.classList.add("is-swiping");
-  modeTitle.style.setProperty("--mode-offset", `${-position * 50}%`);
+  modeTitle.style.setProperty("--mode-offset", `${-position * 100 / 3}%`);
   modeTitle.setPointerCapture(event.pointerId);
 });
 modeTitle.addEventListener("pointermove", (event) => {
@@ -104,9 +152,10 @@ modeTitle.addEventListener("pointermove", (event) => {
   if (Math.abs(dx) <= Math.abs(dy)) return;
   if (Math.abs(dx) >= 6) modeTitle.classList.add("is-swipe-moving");
   const position = titleSwipe.position - dx / titleSwipe.width;
-  const bounded = Math.max(0, Math.min(1, position));
+  const lastPage = isPlayMode || secretSwipeCount >= 2 ? 2 : 1;
+  const bounded = Math.max(0, Math.min(lastPage, position));
   const resisted = bounded + (position - bounded) * 0.18;
-  modeTitle.style.setProperty("--mode-offset", `${-resisted * 50}%`);
+  modeTitle.style.setProperty("--mode-offset", `${-resisted * 100 / 3}%`);
 });
 modeTitle.addEventListener("pointerup", (event) => {
   if (!titleSwipe || event.pointerId !== titleSwipe.id) return;
@@ -118,9 +167,9 @@ modeTitle.addEventListener("pointerup", (event) => {
     (Math.abs(dx) >= 32 && Math.abs(dx) / elapsed > 0.45);
   titleSwipe = null;
   modeTitle.classList.remove("is-swiping", "is-swipe-moving");
-  modeTitle.style.setProperty("--mode-offset", isTestMode ? "-50%" : "0%");
-  if (shouldSwitch && Math.abs(dx) > Math.abs(dy) && (dx < 0) !== isTestMode) {
-    setTestMode(dx < 0);
+  modeTitle.style.setProperty("--mode-offset", modeTitleOffset());
+  if (shouldSwitch && Math.abs(dx) > Math.abs(dy)) {
+    switchModeBySwipe(dx < 0);
   }
 });
 ["pointercancel", "lostpointercapture"].forEach((eventName) => {
@@ -128,15 +177,13 @@ modeTitle.addEventListener("pointerup", (event) => {
     if (!titleSwipe) return;
     titleSwipe = null;
     modeTitle.classList.remove("is-swiping", "is-swipe-moving");
-    modeTitle.style.setProperty("--mode-offset", isTestMode ? "-50%" : "0%");
+    modeTitle.style.setProperty("--mode-offset", modeTitleOffset());
   });
 });
 modeTitle.addEventListener("keydown", (event) => {
   if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     event.preventDefault();
-    if ((event.key === "ArrowLeft") !== isTestMode) {
-      setTestMode(event.key === "ArrowLeft");
-    }
+    if (!event.repeat) switchModeBySwipe(event.key === "ArrowLeft");
   }
 });
 let isPracticeRunning = false;
@@ -757,7 +804,7 @@ function startCalibration() {
   } = schedule;
 
 mode = "calibrating";
-coachConsole.classList.remove("test-mode", "test-results");
+coachConsole.classList.remove("test-mode", "test-results", "play-mode", "play-results");
 
 bpmMonitor.style.color = "#72ff9a";
 bpmMonitor.style.textShadow =
@@ -1086,7 +1133,7 @@ function applyCalibration() {
 
   pendingCalibration = null;
   mode = "idle";
-  setTestMode(isTestMode);
+  setCoachMode(isPlayMode ? "play" : isTestMode ? "test" : "practice");
 
   practiceStatus.textContent =
     `Calibration applied: ` +
@@ -1244,6 +1291,117 @@ function createExpectedEvents() {
   }
 }
 
+function randomPlayPattern() {
+  return Array.from({ length: 4 }, () => 1 + Math.floor(Math.random() * 4));
+}
+
+function createPlayState() {
+  return {
+    bpm: 60,
+    pattern: randomPlayPattern(),
+    nextPattern: randomPlayPattern(),
+    completedLoops: 0,
+    scheduledBeat: -4,
+    currentBeat: -1,
+    countInBeat: 0,
+    nextBeatTime: 0,
+    detectedNotes: 0,
+    latestEvent: null
+  };
+}
+
+function createPlayEvents(loopStartTime, pattern, bpm, loopNumber) {
+  const beatIntervalMs = 60000 / bpm;
+  pattern.forEach((count, beatIndex) => {
+    const noteIntervalMs = beatIntervalMs / count;
+    for (let noteIndex = 0; noteIndex < count; noteIndex++) {
+      const time = loopStartTime + beatIndex * beatIntervalMs + noteIndex * noteIntervalMs;
+      const previous = expectedEvents[expectedEvents.length - 1];
+      const spacingMs = previous ? Math.min(noteIntervalMs, time - previous.time) : noteIntervalMs;
+      expectedEvents.push({
+        number: expectedEvents.length + 1,
+        loop: loopNumber,
+        beatIndex,
+        time,
+        timingWindowMs: Math.max(8, Math.min(spacingMs * 0.46, 180)),
+        detectedTime: null,
+        offsetMs: null,
+        result: null
+      });
+    }
+  });
+}
+
+function renderPlayMode() {
+  if (!playState) return;
+  playDigits.forEach((digit, index) => {
+    const text = String(playState.pattern[index]);
+    if (digit.textContent !== text) digit.textContent = text;
+    digit.classList.toggle("active", isPracticeRunning && playState.currentBeat === index);
+  });
+  const patternText = playState.pattern.join("");
+  if (playState.announcedPattern !== patternText) {
+    playPattern.setAttribute("aria-label", `Four beats: ${playState.pattern.join(", ")} notes per beat`);
+    playState.announcedPattern = patternText;
+  }
+  playProgress.textContent = !isPracticeRunning
+    ? "READY · 4-BEAT COUNT-IN"
+    : playState.scheduledBeat <= 0
+      ? `COUNT-IN ${playState.countInBeat} / 4`
+      : `LOOP ${String(playState.completedLoops + 1).padStart(2, "0")} · LEVEL ${Math.floor(playState.completedLoops / 2) + 1}`;
+  playNext.textContent = `NEXT ${playState.nextPattern.join("")}`;
+  const latest = playState.latestEvent;
+  playFeedback.textContent = !latest
+    ? "EACH DIGIT = NOTES IN ONE BEAT"
+    : latest.result === "Missed" ? "MISSED NOTE · KEEP GOING"
+      : `${latest.result.toUpperCase()} ${latest.offsetMs >= 0 ? "+" : ""}${Math.round(latest.offsetMs)} MS`;
+  bpmMonitor.textContent = `BPM ${String(playState.bpm).padStart(3, "0")}`;
+  window.syncMixer?.();
+}
+
+function startPlayMode() {
+  playState.nextBeatTime = practiceStartTime;
+  advancePlayMode();
+  playTimer = setInterval(advancePlayMode, 16);
+}
+
+function advancePlayMode() {
+  if (!isPlayMode || !isPracticeRunning) return;
+  const now = performance.now();
+  while (playState.nextBeatTime <= now) {
+    if (playState.scheduledBeat > 0 && playState.scheduledBeat % 4 === 0) {
+      playState.completedLoops++;
+      playState.bpm = 60 + Math.floor(playState.completedLoops / 2) * 5;
+      playState.pattern = playState.nextPattern;
+      playState.nextPattern = randomPlayPattern();
+      const nextBpm = 60 + Math.floor((playState.completedLoops + 1) / 2) * 5;
+      createPlayEvents(playState.nextBeatTime + 4 * 60000 / playState.bpm,
+        playState.nextPattern, nextBpm, playState.completedLoops + 2);
+    }
+    const beatIntervalMs = 60000 / playState.bpm;
+    minimumGapMs = Math.max(18, Math.min(beatIntervalMs / 4 * 0.22, 90));
+    timingWindowMs = Math.max(10, Math.min(beatIntervalMs / 4 * 0.46, 180));
+    if (playState.scheduledBeat < 0) {
+      playState.countInBeat = playState.scheduledBeat + 5;
+    } else {
+      playState.currentBeat = playState.scheduledBeat % 4;
+    }
+    // Delayed browser frames must not replay a burst of old clicks.
+    if (now - playState.nextBeatTime < beatIntervalMs / 2) {
+      beat();
+      playbackButton.classList.add("beat-flash");
+      clearTimeout(playbackLightOffTimer);
+      playbackLightOffTimer = setTimeout(() => {
+        playbackButton.classList.remove("beat-flash");
+        playbackLightOffTimer = null;
+      }, beatIntervalMs / 2);
+    }
+    playState.scheduledBeat++;
+    playState.nextBeatTime += beatIntervalMs;
+  }
+  updatePracticeDisplay();
+}
+
 function checkForPianoSound() {
   const volume = getCurrentVolume();
   const flux = getSpectralFlux();
@@ -1374,7 +1532,7 @@ function matchSoundToExpectedEvent(soundTime) {
   */
   while (
     nextEvent &&
-    soundTime > expectedSoundTime(nextEvent) + timingWindowMs
+    soundTime > expectedSoundTime(nextEvent) + (nextEvent.timingWindowMs ?? timingWindowMs)
   ) {
     nextEvent.result = "Missed";
 
@@ -1397,14 +1555,15 @@ function matchSoundToExpectedEvent(soundTime) {
   */
   const correctedDifference =
     soundTime - expectedSoundTime(nextEvent);
+  const eventWindowMs = nextEvent.timingWindowMs ?? timingWindowMs;
 
-  if (correctedDifference < -timingWindowMs) {
+  if (correctedDifference < -eventWindowMs) {
     practiceStatus.textContent =
       "Onset ignored: too early for next event.";
     return;
   }
 
-  if (correctedDifference > timingWindowMs) {
+  if (correctedDifference > eventWindowMs) {
     practiceStatus.textContent =
       "Onset ignored: too late for next event.";
     return;
@@ -1417,7 +1576,7 @@ function matchSoundToExpectedEvent(soundTime) {
 
   const onBeatRangeMs = Math.min(
     55,
-    timingWindowMs * 0.55
+    eventWindowMs * 0.55
   );
 
   if (correctedDifference < -onBeatRangeMs) {
@@ -1486,7 +1645,8 @@ function startPractice() {
     return;
   }
 
-  const bpm = Number(bpmSlider.value);
+  if (isPlayMode) playState = createPlayState();
+  const bpm = isPlayMode ? playState.bpm : Number(bpmSlider.value);
   const subdivision = Number(notesPerBeat.value);
   const noteIntervalMs = 60000 / bpm / subdivision;
   const safetyGapMs = 18;
@@ -1502,7 +1662,8 @@ timingWindowMs = Math.max(
   mode = "practice";
 isPracticeRunning = true;
 coachConsole.classList.toggle("test-mode", isTestMode);
-coachConsole.classList.remove("test-results");
+coachConsole.classList.toggle("play-mode", isPlayMode);
+coachConsole.classList.remove("test-results", "play-results");
 /* Transport icon state: practice / recording */
 startPracticeButton.classList.remove("lamp-green");
 stopPracticeButton.classList.add("lamp-red");
@@ -1526,9 +1687,17 @@ window.updateTransportLamps?.();
   dynamicFluxThreshold = 0;
   practiceStartTime = performance.now();
 
-  createExpectedEvents();
+  if (isPlayMode) {
+    expectedEvents = [];
+    createPlayEvents(practiceStartTime + 4000, playState.pattern, 60, 1);
+    // Prepare the next loop in advance so its first note can be matched early.
+    createPlayEvents(practiceStartTime + 8000, playState.nextPattern, 60, 2);
+  } else {
+    createExpectedEvents();
+  }
 startRecording();
-startPracticeMetronome();
+if (isPlayMode) startPlayMode();
+else startPracticeMetronome();
 if (isTestMode) {
   testProgressTimer = setInterval(updatePracticeDisplay, 25);
 }
@@ -1542,6 +1711,7 @@ if (isTestMode) {
   practiceScore.textContent = "Accuracy: 0%";
   drawTimingChart();
   practiceStatus.textContent =
+    isPlayMode ? "4-beat count-in at 60 BPM, then follow the random pattern. Press STOP to finish." :
     `4-beat count-in, then play ${totalNotes.value} events at ` +
     `${bpm} BPM (${subdivision} notes per beat).` +
     (isTestMode ? " Keep the rhythm without clicks until the test ends." : "");
@@ -1554,12 +1724,15 @@ function stopPractice() {
   }
 
   isPracticeRunning = false;
+clearInterval(playTimer);
+playTimer = null;
 clearInterval(testProgressTimer);
 testProgressTimer = null;
 stopPracticeMetronome();
 stopRecording();
   mode = "idle";
 coachConsole.classList.toggle("test-results", isTestMode);
+coachConsole.classList.toggle("play-results", isPlayMode);
 /* Transport icon state: practice stopped */
 startPracticeButton.classList.add("lamp-green");
 stopPracticeButton.classList.remove("lamp-red");
@@ -1576,11 +1749,14 @@ const toleranceMs = timingWindowMs;
 const calibrationOffsetMs = calibration
   ? calibration.offsetMs
   : 0;
+  if (isPlayMode) {
+    expectedEvents = expectedEvents.filter(event => event.result !== null || event.time + calibrationOffsetMs <= now);
+  }
 
   for (const event of expectedEvents) {
     if (
       event.detectedTime === null &&
-      now > event.time + calibrationOffsetMs + toleranceMs
+      now > event.time + calibrationOffsetMs + (event.timingWindowMs ?? toleranceMs)
     ) {
       event.result = "Missed";
     }
@@ -1606,16 +1782,17 @@ const calibrationOffsetMs = calibration
     `(${matchedEvents.length}/${completedEvents.length})`;
 
   practiceStatus.textContent =
-    isTestMode ? "Test finished. Check your timing results."
+    isPlayMode ? `Play mode stopped after ${playState.completedLoops} loops at ${playState.bpm} BPM.`
+      : isTestMode ? "Test finished. Check your timing results."
       : "Practice stopped. Check each event below.";
 
 
-  bpmSlider.disabled = false;
-  notesPerBeat.disabled = false;
-  totalNotes.disabled = false;
+  bpmSlider.disabled = isPlayMode;
+  notesPerBeat.disabled = isPlayMode;
+  totalNotes.disabled = isPlayMode;
 }
 function drawTimingChart() {
-  if (isTestMode && isPracticeRunning) return;
+  if ((isTestMode || isPlayMode) && isPracticeRunning) return;
   const canvas = timingChart;
   const ctx = timingChartContext;
   const width = canvas.width / chartResolution;
@@ -1937,7 +2114,7 @@ function updatePracticeDisplay() {
   for (const event of expectedEvents) {
     if (
       event.detectedTime === null &&
-      now > event.time + calibrationOffsetMs + toleranceMs &&
+      now > event.time + calibrationOffsetMs + (event.timingWindowMs ?? toleranceMs) &&
       event.result === null
     ) {
       event.result = "Missed";
@@ -1967,6 +2144,13 @@ function updatePracticeDisplay() {
   practiceScore.textContent =
     `Accuracy: ${accuracy.toFixed(1)}% ` +
     `(${matchedEvents.length}/${dueEvents.length})`;
+
+  if (isPlayMode && isPracticeRunning) {
+    playState.detectedNotes = matchedEvents.length;
+    playState.latestEvent = dueEvents[dueEvents.length - 1] || null;
+    renderPlayMode();
+    return;
+  }
 
   practiceResults.innerHTML = "";
 

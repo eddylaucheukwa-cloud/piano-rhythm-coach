@@ -81,7 +81,7 @@ button {
     position: absolute;
     inset: 0 auto 0 0;
     display: flex;
-    width: 200%;
+    width: 300%;
     transform: translate3d(var(--mode-offset, 0%), 0, 0);
     transition: transform 340ms cubic-bezier(.22, .8, .25, 1);
 }
@@ -89,7 +89,7 @@ button {
 .mode-title-track > span {
     display: flex;
     align-items: center;
-    flex: 0 0 50%;
+    flex: 0 0 33.3333333333%;
     padding: 0 10px;
     white-space: nowrap;
 }
@@ -108,6 +108,9 @@ button {
 }
 
 .title-lcd.is-swipe-moving .mode-swipe-hint { opacity: 1; }
+
+.play-title { visibility: hidden; }
+.play-unlocked .play-title { visibility: visible; }
 
 .monitor-label {
     height: 42px;
@@ -568,6 +571,46 @@ button {
   font-size: clamp(32px, 10vw, 48px);
   letter-spacing: 3px;
 }
+
+.play-display {
+  display: none;
+  position: absolute;
+  inset: 8px 12px 21px;
+  flex-direction: column;
+  justify-content: space-evenly;
+  color: var(--green);
+  font: 800 12px/1 "Doto", "Share Tech Mono", monospace;
+  font-variation-settings: "ROND" 100;
+  text-align: center;
+}
+
+.play-display p { margin: 0; }
+.play-pattern {
+  display: flex;
+  justify-content: space-evenly;
+  font-size: clamp(28px, 6dvh, 48px);
+  line-height: 1;
+}
+.play-pattern span {
+  min-width: 1em;
+  padding-bottom: 4px;
+  opacity: .5;
+  border-bottom: 2px dotted transparent;
+}
+.play-pattern span.active {
+  opacity: 1;
+  border-bottom-color: var(--green);
+  text-shadow: 0 0 6px rgba(114, 255, 154, .45);
+}
+#playFeedback { font-size: 11px; }
+#playNext { text-align: left; font-size: 11px; }
+.play-mode:not(.play-results) .play-display { display: flex; }
+.play-mode:not(.play-results) #timingChart { visibility: hidden; }
+.play-mode .tempo-knob,
+.play-mode .notes-wheel,
+.play-mode .step-buttons { cursor: default; }
+.play-mode .notes-wheel,
+.play-mode .step-buttons { opacity: .45; }
 
 .title-lcd:focus-visible {
   outline: 3px solid #267d48;

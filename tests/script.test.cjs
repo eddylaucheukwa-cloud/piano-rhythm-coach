@@ -33,8 +33,8 @@ function loadApp(calibration = null) {
         setPointerCapture() {},
         setAttribute(name, value) { this[name] = value; },
         getBoundingClientRect() {
-          const offset = id === 'modeTitleTrack' ? parseFloat(element('modeTitle').style['--mode-offset'] || '0') * 8 : 0;
-          return { left: offset, width: id === 'modeTitleTrack' ? 800 : 400 };
+          const offset = id === 'modeTitleTrack' ? parseFloat(element('modeTitle').style['--mode-offset'] || '0') * 12 : 0;
+          return { left: offset, width: id === 'modeTitleTrack' ? 1200 : 400 };
         },
         getContext: () => canvasContext,
         pause() {}, load() {}, removeAttribute(name) { this[name] = ''; },
@@ -189,7 +189,7 @@ test('title follows dragging, returns after a short slow swipe, and accepts a qu
   const pointer = (x) => ({ isPrimary: true, button: 0, pointerId: 1, clientX: x, clientY: 20 });
   title.dispatch('pointerdown', pointer(200));
   title.dispatch('pointermove', pointer(150));
-  assert.equal(parseFloat(title.style['--mode-offset']), -6.25);
+  assert.equal(parseFloat(title.style['--mode-offset']), -100 / 24);
   assert.equal(title.classList.contains('is-swiping'), true);
   app.context.performance.now = () => 1400;
   title.dispatch('pointerup', pointer(150));
@@ -201,11 +201,11 @@ test('title follows dragging, returns after a short slow swipe, and accepts a qu
   app.context.performance.now = () => 1450;
   title.dispatch('pointerup', pointer(160));
   assert.equal(vm.runInContext('isTestMode', app.context), true);
-  assert.equal(title.style['--mode-offset'], '-50%');
+  assert.equal(title.style['--mode-offset'], `${-100 / 3}%`);
   title.dispatch('pointerdown', pointer(200));
   title.dispatch('pointermove', pointer(260));
   title.dispatch('pointercancel', {});
-  assert.equal(title.style['--mode-offset'], '-50%');
+  assert.equal(title.style['--mode-offset'], `${-100 / 3}%`);
   assert.equal(title.classList.contains('is-swiping'), false);
 });
 
@@ -217,11 +217,11 @@ test('outward swipes preserve completed results and running sessions cannot star
   const pointer = (x) => ({ isPrimary: true, button: 0, pointerId: 1, clientX: x, clientY: 20 });
   title.dispatch('pointerdown', pointer(200));
   title.dispatch('pointermove', pointer(100));
-  assert.ok(parseFloat(title.style['--mode-offset']) > -63);
-  assert.ok(parseFloat(title.style['--mode-offset']) < -50);
+  assert.ok(parseFloat(title.style['--mode-offset']) > -42);
+  assert.ok(parseFloat(title.style['--mode-offset']) < -100 / 3);
   title.dispatch('pointerup', pointer(100));
   assert.equal(app.element('coachConsole').classList.contains('test-results'), true);
-  assert.equal(title.style['--mode-offset'], '-50%');
+  assert.equal(title.style['--mode-offset'], `${-100 / 3}%`);
   app.element('startPracticeButton').click();
   title.dispatch('pointerdown', pointer(200));
   assert.equal(title.classList.contains('is-swiping'), false);
@@ -292,4 +292,127 @@ test('calibration remains visible in test mode and applying it restores the BPM 
   assert.equal(app.element('coachConsole').classList.contains('test-mode'), true);
   assert.equal(vm.runInContext('mode', app.context), 'idle');
   assert.match(app.element('practiceStatus').textContent, /Calibration applied/);
+});
+
+function startPlay(app) {
+  vm.runInContext(`
+    let randomIndex = 0;
+    Math.random = () => [0.25, 0.5, 0.75, 0][randomIndex++ % 4];
+    microphoneStream = {};
+    previousFrequencyData = new Uint8Array(4);
+    setCoachMode("play");
+  `, app.context);
+  app.element('startPracticeButton').click();
+}
+
+test('play mode unlocks on the third extra left swipe from test mode and exits to test mode', () => {
+  const app = loadApp();
+  vm.runInContext('setTestMode(true)', app.context);
+  const title = app.element('modeTitle');
+  const swipe = (left) => {
+    title.dispatch('pointerdown', { isPrimary:true, button:0, pointerId:1, clientX:200, clientY:20 });
+    title.dispatch('pointerup', { pointerId:1, clientX:left?100:300, clientY:20 });
+  };
+  swipe(true); swipe(true);
+  assert.equal(vm.runInContext('isPlayMode', app.context), false);
+  swipe(true);
+  assert.equal(vm.runInContext('isPlayMode', app.context), true);
+  assert.equal(app.element('coachConsole').classList.contains('play-mode'), true);
+  swipe(false);
+  assert.equal(vm.runInContext('isPlayMode', app.context), false);
+  assert.equal(vm.runInContext('isTestMode', app.context), true);
+  swipe(false);
+  assert.equal(vm.runInContext('isTestMode', app.context), false);
+});
+
+test('2341 schedules 2, 3, 4, and 1 evenly spaced notes after a four-beat 60 BPM count-in', () => {
+  const app = loadApp();
+  startPlay(app);
+  const events = vm.runInContext('expectedEvents.filter(event => event.loop === 1)', app.context);
+  assert.equal(events.length, 10);
+  const expectedTimes = [5000,5500,6000,6000+1000/3,6000+2000/3,7000,7250,7500,7750,8000];
+  events.forEach((event,index) => assert.ok(Math.abs(event.time-expectedTimes[index])<0.001));
+  assert.equal(vm.runInContext('playState.bpm', app.context), 60);
+  app.context.performance.now = () => 5000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.currentBeat', app.context), 0);
+  assert.equal(app.element('playBeat1').classList.contains('active'), true);
+});
+
+test('play mode generates a new pattern each cycle and increases tempo only after two complete cycles', () => {
+  const app = loadApp();
+  startPlay(app);
+  vm.runInContext('Math.random = () => 0', app.context);
+  app.context.performance.now = () => 9000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.completedLoops', app.context), 1);
+  assert.equal(vm.runInContext('playState.bpm', app.context), 60);
+  assert.equal(vm.runInContext('playState.nextPattern.join("")', app.context), '1111');
+  app.context.performance.now = () => 13000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.completedLoops', app.context), 2);
+  assert.equal(vm.runInContext('playState.bpm', app.context), 65);
+  assert.equal(vm.runInContext('playState.pattern.join("")', app.context), '1111');
+  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 3).time', app.context), 13000);
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), true);
+});
+
+test('play mode uses calibrated note deadlines, stops its timers, and restarts at 60 BPM', () => {
+  const app = loadApp({offsetMs:300});
+  startPlay(app);
+  app.context.performance.now = () => 5300;
+  vm.runInContext('advancePlayMode(); matchSoundToExpectedEvent(5300)', app.context);
+  assert.equal(vm.runInContext('expectedEvents[0].result', app.context), 'On Beat');
+  assert.equal(app.chartDraws, 0);
+  app.element('stopPracticeButton').click();
+  assert.equal(app.intervals.size, 0);
+  assert.equal(vm.runInContext('mediaRecorder.state', app.context), 'inactive');
+  assert.equal(app.element('coachConsole').classList.contains('play-results'), true);
+  assert.equal(app.chartDraws, 1);
+  app.element('startPracticeButton').click();
+  assert.equal(vm.runInContext('playState.bpm', app.context), 60);
+  assert.equal(vm.runInContext('playState.completedLoops', app.context), 0);
+  assert.equal(app.element('coachConsole').classList.contains('play-results'), false);
+});
+
+test('the upcoming play loop is ready to match an early first note before the loop boundary', () => {
+  const app = loadApp();
+  startPlay(app);
+  vm.runInContext('expectedEvents.filter(event => event.loop === 1).forEach(event => {event.result = "Missed"})', app.context);
+  app.context.performance.now = () => 8900;
+  vm.runInContext('advancePlayMode(); matchSoundToExpectedEvent(8900)', app.context);
+  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 2).result', app.context), 'Early');
+  assert.equal(vm.runInContext('playState.completedLoops', app.context), 0);
+});
+
+test('play tempo continues increasing beyond the manual tempo control range', () => {
+  const app = loadApp();
+  startPlay(app);
+  for (let beat = 0; beat < 204; beat++) {
+    app.context.performance.now = () => vm.runInContext('playState.nextBeatTime', app.context);
+    vm.runInContext('advancePlayMode()', app.context);
+  }
+  assert.equal(vm.runInContext('playState.completedLoops', app.context), 50);
+  assert.equal(vm.runInContext('playState.bpm', app.context), 185);
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), true);
+});
+
+test('tempo increases do not change the timing window of an earlier delayed play note', () => {
+  const app = loadApp({offsetMs:1300});
+  startPlay(app);
+  app.context.performance.now = () => 13410;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.bpm', app.context), 65);
+  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 2 && event.beatIndex === 3).result', app.context), null);
+  vm.runInContext('matchSoundToExpectedEvent(13410)', app.context);
+  assert.equal(vm.runInContext('expectedEvents.find(event => event.loop === 2 && event.beatIndex === 3).result', app.context), 'Late');
+});
+
+test('calibration inside play mode restores the play screen after applying', () => {
+  const app = loadApp();
+  vm.runInContext('microphoneStream={};previousFrequencyData=new Uint8Array(4);setCoachMode("play");startCalibration()', app.context);
+  assert.equal(app.element('coachConsole').classList.contains('play-mode'), false);
+  vm.runInContext('mode="calibration-result";pendingCalibration={offsetMs:100};applyCalibration()', app.context);
+  assert.equal(vm.runInContext('isPlayMode', app.context), true);
+  assert.equal(app.element('coachConsole').classList.contains('play-mode'), true);
 });
