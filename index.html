@@ -10,7 +10,11 @@
 
 <body>
     <main id="coachConsole" class="console">
-        <header id="modeTitle" class="title-lcd" tabindex="0" aria-label="Piano Rhythm Coach. Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode." title="Swipe left: Test mode · Swipe right: Practice mode">PIANO RHYTHM COACH</header>
+        <header id="modeTitle" class="title-lcd" tabindex="0" aria-label="Piano Rhythm Coach. Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode." title="Swipe left: Test mode · Swipe right: Practice mode">
+            <div id="modeTitleTrack" class="mode-title-track" aria-hidden="true">
+                <span>PIANO RHYTHM COACH</span><span>TEST MODE</span>
+            </div>
+        </header>
         <section class="monitor-label"><span>MONITOR</span><span id="practiceScore">ACCURACY: --</span><i id="noteLight"
                 class="indicator" aria-label="Piano sound indicator"></i></section>
                 <section class="monitor">

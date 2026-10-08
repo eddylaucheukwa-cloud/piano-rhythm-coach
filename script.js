@@ -62,6 +62,7 @@ const timingChartContext = timingChart.getContext("2d");
 const bpmMonitor = document.getElementById("bpmMonitor");
 const coachConsole = document.getElementById("coachConsole");
 const modeTitle = document.getElementById("modeTitle");
+const modeTitleTrack = document.getElementById("modeTitleTrack");
 let isTestMode = false;
 let testProgressTimer = null;
 let titleSwipe = null;
@@ -71,33 +72,65 @@ function setTestMode(enabled) {
   isTestMode = enabled;
   coachConsole.classList.toggle("test-mode", enabled);
   coachConsole.classList.remove("test-results");
-  modeTitle.textContent = enabled ? "TEST MODE" : "PIANO RHYTHM COACH";
+  modeTitle.style.setProperty("--mode-offset", enabled ? "-50%" : "0%");
+  modeTitle.setAttribute("aria-label", (enabled ? "Test mode." : "Piano Rhythm Coach.") +
+    " Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode.");
   practiceStatus.textContent = enabled
     ? "Test mode: 4-beat count-in, then keep the rhythm without clicks."
     : "Practice mode: metronome and live timing chart.";
 }
 
 modeTitle.addEventListener("pointerdown", (event) => {
-  if (!event.isPrimary || event.button !== 0) return;
-  titleSwipe = { x: event.clientX, y: event.clientY, id: event.pointerId };
+  if (!event.isPrimary || event.button !== 0 || mode !== "idle" || isPracticeRunning) return;
+  const rect = modeTitle.getBoundingClientRect();
+  const position = (rect.left - modeTitleTrack.getBoundingClientRect().left) / rect.width;
+  titleSwipe = {
+    x: event.clientX, y: event.clientY, id: event.pointerId,
+    width: rect.width, position, startedAt: performance.now()
+  };
+  modeTitle.classList.add("is-swiping");
+  modeTitle.style.setProperty("--mode-offset", `${-position * 50}%`);
   modeTitle.setPointerCapture(event.pointerId);
+});
+modeTitle.addEventListener("pointermove", (event) => {
+  if (!titleSwipe || event.pointerId !== titleSwipe.id) return;
+  const dx = event.clientX - titleSwipe.x;
+  const dy = event.clientY - titleSwipe.y;
+  if (Math.abs(dx) <= Math.abs(dy)) return;
+  const position = titleSwipe.position - dx / titleSwipe.width;
+  const bounded = Math.max(0, Math.min(1, position));
+  const resisted = bounded + (position - bounded) * 0.18;
+  modeTitle.style.setProperty("--mode-offset", `${-resisted * 50}%`);
 });
 modeTitle.addEventListener("pointerup", (event) => {
   if (!titleSwipe || event.pointerId !== titleSwipe.id) return;
   const dx = event.clientX - titleSwipe.x;
   const dy = event.clientY - titleSwipe.y;
+  const elapsed = Math.max(1, performance.now() - titleSwipe.startedAt);
+  const threshold = Math.min(80, titleSwipe.width * 0.22);
+  const shouldSwitch = Math.abs(dx) >= threshold ||
+    (Math.abs(dx) >= 32 && Math.abs(dx) / elapsed > 0.45);
   titleSwipe = null;
-  if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)) {
+  modeTitle.classList.remove("is-swiping");
+  modeTitle.style.setProperty("--mode-offset", isTestMode ? "-50%" : "0%");
+  if (shouldSwitch && Math.abs(dx) > Math.abs(dy) && (dx < 0) !== isTestMode) {
     setTestMode(dx < 0);
   }
 });
 ["pointercancel", "lostpointercapture"].forEach((eventName) => {
-  modeTitle.addEventListener(eventName, () => { titleSwipe = null; });
+  modeTitle.addEventListener(eventName, () => {
+    if (!titleSwipe) return;
+    titleSwipe = null;
+    modeTitle.classList.remove("is-swiping");
+    modeTitle.style.setProperty("--mode-offset", isTestMode ? "-50%" : "0%");
+  });
 });
 modeTitle.addEventListener("keydown", (event) => {
   if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     event.preventDefault();
-    setTestMode(event.key === "ArrowLeft");
+    if ((event.key === "ArrowLeft") !== isTestMode) {
+      setTestMode(event.key === "ArrowLeft");
+    }
   }
 });
 let isPracticeRunning = false;

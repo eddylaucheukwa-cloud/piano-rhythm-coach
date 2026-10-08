@@ -18,7 +18,7 @@ function loadApp(calibration = null) {
       elements.set(id, {
         value: { bpm: '120', notesPerBeat: '1', totalNotes: '4' }[id] ?? '',
         textContent: '', innerHTML: '', src: '', width: 400, height: 220,
-        style: {}, classList: {
+        style: { setProperty(name, value) { this[name] = value; } }, classList: {
           add(...names) { names.forEach((name) => classes.add(name)); },
           remove(...names) { names.forEach((name) => classes.delete(name)); },
           toggle(name, force) {
@@ -31,6 +31,11 @@ function loadApp(calibration = null) {
         click() { handlers.get('click')?.(); },
         dispatch(name, event) { handlers.get(name)?.(event); },
         setPointerCapture() {},
+        setAttribute(name, value) { this[name] = value; },
+        getBoundingClientRect() {
+          const offset = id === 'modeTitleTrack' ? parseFloat(element('modeTitle').style['--mode-offset'] || '0') * 8 : 0;
+          return { left: offset, width: id === 'modeTitleTrack' ? 800 : 400 };
+        },
         getContext: () => canvasContext,
         pause() {}, load() {}, removeAttribute(name) { this[name] = ''; },
         appendChild() {}, scrollHeight: 0, scrollTop: 0,
@@ -171,11 +176,56 @@ test('title swipes select test/practice modes and ignore vertical or cancelled g
   down(); title.dispatch('pointercancel', {}); up(100);
   assert.equal(vm.runInContext('isTestMode', app.context), false);
   down(); up(100);
-  assert.equal(title.textContent, 'TEST MODE');
+  assert.match(title['aria-label'], /^Test mode\./);
   assert.equal(app.element('coachConsole').classList.contains('test-mode'), true);
   down(); up(260);
-  assert.equal(title.textContent, 'PIANO RHYTHM COACH');
+  assert.match(title['aria-label'], /^Piano Rhythm Coach\./);
   assert.equal(app.element('coachConsole').classList.contains('test-mode'), false);
+});
+
+test('title follows dragging, returns after a short slow swipe, and accepts a quick flick', () => {
+  const app = loadApp();
+  const title = app.element('modeTitle');
+  const pointer = (x) => ({ isPrimary: true, button: 0, pointerId: 1, clientX: x, clientY: 20 });
+  title.dispatch('pointerdown', pointer(200));
+  title.dispatch('pointermove', pointer(150));
+  assert.equal(parseFloat(title.style['--mode-offset']), -6.25);
+  assert.equal(title.classList.contains('is-swiping'), true);
+  app.context.performance.now = () => 1400;
+  title.dispatch('pointerup', pointer(150));
+  assert.equal(vm.runInContext('isTestMode', app.context), false);
+  assert.equal(title.style['--mode-offset'], '0%');
+  assert.equal(title.classList.contains('is-swiping'), false);
+  title.dispatch('pointerdown', pointer(200));
+  title.dispatch('pointermove', pointer(160));
+  app.context.performance.now = () => 1450;
+  title.dispatch('pointerup', pointer(160));
+  assert.equal(vm.runInContext('isTestMode', app.context), true);
+  assert.equal(title.style['--mode-offset'], '-50%');
+  title.dispatch('pointerdown', pointer(200));
+  title.dispatch('pointermove', pointer(260));
+  title.dispatch('pointercancel', {});
+  assert.equal(title.style['--mode-offset'], '-50%');
+  assert.equal(title.classList.contains('is-swiping'), false);
+});
+
+test('outward swipes preserve completed results and running sessions cannot start a drag', () => {
+  const app = loadApp();
+  startTest(app);
+  app.element('stopPracticeButton').click();
+  const title = app.element('modeTitle');
+  const pointer = (x) => ({ isPrimary: true, button: 0, pointerId: 1, clientX: x, clientY: 20 });
+  title.dispatch('pointerdown', pointer(200));
+  title.dispatch('pointermove', pointer(100));
+  assert.ok(parseFloat(title.style['--mode-offset']) > -63);
+  assert.ok(parseFloat(title.style['--mode-offset']) < -50);
+  title.dispatch('pointerup', pointer(100));
+  assert.equal(app.element('coachConsole').classList.contains('test-results'), true);
+  assert.equal(title.style['--mode-offset'], '-50%');
+  app.element('startPracticeButton').click();
+  title.dispatch('pointerdown', pointer(200));
+  assert.equal(title.classList.contains('is-swiping'), false);
+  assert.equal(vm.runInContext('titleSwipe', app.context), null);
 });
 
 test('test mode plays exactly four count-in clicks and then stops beat flashing', () => {
