@@ -257,6 +257,9 @@ button {
 }
 
 .readout output {
+    font-family: "Doto", "Share Tech Mono", monospace;
+    font-weight: 800;
+    font-variation-settings: "ROND" 100;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -431,7 +434,8 @@ button {
   right: 12px;
   bottom: 4px;
   color: #72ff9a;
-  font: 12px "Share Tech Mono", monospace;
+  font: 800 14px/1 "Doto", "Share Tech Mono", monospace;
+  font-variation-settings: "ROND" 100;
   letter-spacing: 1px;
   text-shadow: 0 0 6px rgba(114, 255, 154, 0.7);
   pointer-events: none;

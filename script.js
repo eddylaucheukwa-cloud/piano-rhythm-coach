@@ -59,6 +59,11 @@ const practiceScore = document.getElementById("practiceScore");
 const practiceResults = document.getElementById("practiceResults");
 const timingChart = document.getElementById("timingChart");
 const timingChartContext = timingChart.getContext("2d");
+// Keep the small dot-matrix letters crisp when the monitor is scaled on phones.
+const chartResolution = 2;
+timingChart.width *= chartResolution;
+timingChart.height *= chartResolution;
+timingChartContext.scale(chartResolution, chartResolution);
 const bpmMonitor = document.getElementById("bpmMonitor");
 const coachConsole = document.getElementById("coachConsole");
 const modeTitle = document.getElementById("modeTitle");
@@ -474,8 +479,8 @@ function drawCalibrationResult({
 }) {
   const canvas = timingChart;
   const ctx = timingChartContext;
-  const width = canvas.width;
-  const height = canvas.height;
+  const width = canvas.width / chartResolution;
+  const height = canvas.height / chartResolution;
 
   const mainColor = success ? "#72ff9a" : "#f54444";
   const darkColor = success ? "#07140b" : "#180707";
@@ -513,14 +518,14 @@ function drawCalibrationResult({
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  ctx.font = '22px "Share Tech Mono", monospace';
+  ctx.font = '800 24px "Doto", "Share Tech Mono", monospace';
   ctx.fillText(title, width / 2, 53);
 
   ctx.fillStyle = success
     ? "rgba(114, 255, 154, 0.85)"
     : "rgba(255, 155, 155, 0.88)";
 
-  ctx.font = '12px "Share Tech Mono", monospace';
+  ctx.font = '800 14px "Doto", "Share Tech Mono", monospace';
   ctx.fillText(line1, width / 2, 88);
   ctx.fillText(line2, width / 2, 111);
 
@@ -532,17 +537,17 @@ function drawCalibrationResult({
   ctx.stroke();
 
   ctx.fillStyle = mainColor;
-  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.font = '800 12px "Doto", "Share Tech Mono", monospace';
   ctx.fillText(actionText, width / 2, 166);
 
-  ctx.font = '9px "Share Tech Mono", monospace';
+  ctx.font = '800 11px "Doto", "Share Tech Mono", monospace';
   ctx.fillStyle = success
     ? "rgba(114, 255, 154, 0.65)"
     : "rgba(255, 155, 155, 0.65)";
   ctx.fillText(
     success ? "LATENCY PROFILE SAVED ON APPLY" : "NO CHANGES WERE SAVED",
     width / 2,
-    187
+    178
   );
 }
 function startCalibrationMonitor() {
@@ -568,8 +573,8 @@ function startCalibrationMonitor() {
 function drawCalibrationMonitor() {
   const canvas = timingChart;
   const ctx = timingChartContext;
-  const width = canvas.width;
-  const height = canvas.height;
+  const width = canvas.width / chartResolution;
+  const height = canvas.height / chartResolution;
   const now = performance.now();
 
   const beatIntervalMs = 60000 / CALIBRATION_BPM;
@@ -646,11 +651,11 @@ function drawCalibrationMonitor() {
   ctx.textBaseline = "middle";
 
   ctx.fillStyle = "#72ff9a";
-  ctx.font = '18px "Share Tech Mono", monospace';
+  ctx.font = '800 20px "Doto", "Share Tech Mono", monospace';
   ctx.fillText(headline, width / 2, 36);
 
   ctx.fillStyle = "rgba(114, 255, 154, 0.7)";
-  ctx.font = '10px "Share Tech Mono", monospace';
+  ctx.font = '800 12px "Doto", "Share Tech Mono", monospace';
   ctx.fillText(subline, width / 2, 58);
 
   const startX = 23;
@@ -691,7 +696,7 @@ function drawCalibrationMonitor() {
     ctx.fillStyle =
       event.result === "Matched" ? "#061006" : "#72ff9a";
 
-    ctx.font = '8px "Share Tech Mono", monospace';
+    ctx.font = '800 10px "Doto", "Share Tech Mono", monospace';
     ctx.fillText(
       String(event.number).padStart(2, "0"),
       x + cellWidth / 2,
@@ -725,7 +730,7 @@ function drawCalibrationMonitor() {
   );
 
   ctx.fillStyle = "rgba(114, 255, 154, 0.7)";
-  ctx.font = '9px "Share Tech Mono", monospace';
+  ctx.font = '800 11px "Doto", "Share Tech Mono", monospace';
   ctx.fillText(
     `INPUT ${matchedCount} / ${CALIBRATION_NOTE_COUNT}`,
     width / 2,
@@ -1613,8 +1618,8 @@ function drawTimingChart() {
   if (isTestMode && isPracticeRunning) return;
   const canvas = timingChart;
   const ctx = timingChartContext;
-  const width = canvas.width;
-  const height = canvas.height;
+  const width = canvas.width / chartResolution;
+  const height = canvas.height / chartResolution;
 
   const colors = {
     green: "#72ff9a",
@@ -1651,8 +1656,8 @@ function drawTimingChart() {
   const padding = {
     top: 28,
     right: 12,
-    bottom: 40,
-    left: 34
+    bottom: 52,
+    left: 44
   };
 
   const chartLeft = padding.left;
@@ -1721,15 +1726,15 @@ function drawTimingChart() {
   ctx.textAlign = "left";
 
   ctx.fillStyle = colors.greenDim;
-  ctx.font = '8px "Share Tech Mono", monospace';
+  ctx.font = '800 10px "Doto", "Share Tech Mono", monospace';
   ctx.fillText("EARLY", 3, chartTop + 7);
-  ctx.fillText("ON", 3, zeroY - 4);
-  ctx.fillText("BEAT", 3, zeroY + 5);
+  ctx.fillText("ON", 3, zeroY - 6);
+  ctx.fillText("BEAT", 3, zeroY + 6);
   ctx.fillText("LATE", 3, chartBottom - 6);
 
   ctx.textAlign = "left";
   ctx.fillStyle = colors.green;
-  ctx.font = '10px "Share Tech Mono", monospace';
+  ctx.font = '800 12px "Doto", "Share Tech Mono", monospace';
 
   const monitorTitle = isPracticeRunning
     ? "PRACTICE TIMING"
@@ -1747,14 +1752,14 @@ function drawTimingChart() {
 
   ctx.textAlign = "right";
   ctx.fillStyle = colors.greenDim;
-  ctx.font = '8px "Share Tech Mono", monospace';
+  ctx.font = '800 10px "Doto", "Share Tech Mono", monospace';
   ctx.fillText(headerRight, chartRight, 12);
 
   if (allEvents.length === 0) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = colors.greenDim;
-    ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.font = '800 12px "Doto", "Share Tech Mono", monospace';
     ctx.fillText(
       "PRESS START TO BEGIN PRACTICE",
       width / 2,
@@ -1814,7 +1819,7 @@ function drawTimingChart() {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = colors.greenDim;
-      ctx.font = '7px "Share Tech Mono", monospace';
+      ctx.font = '800 10px "Doto", "Share Tech Mono", monospace';
       ctx.fillText(
         `E${String(event.number).padStart(2, "0")}`,
         x,
@@ -1919,8 +1924,8 @@ function drawTimingChart() {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = colors.greenDim;
-  ctx.font = '8px "Share Tech Mono", monospace';
-  ctx.fillText(footerText, width / 2, height - 10);
+  ctx.font = '800 10px "Doto", "Share Tech Mono", monospace';
+  ctx.fillText(footerText, width / 2, height - 24);
 }
 function updatePracticeDisplay() {
   const now = performance.now();
