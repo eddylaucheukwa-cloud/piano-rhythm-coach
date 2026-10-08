@@ -93,6 +93,15 @@ button {
 
 .title-lcd.is-swiping .mode-title-track { transition: none; }
 
+.mode-swipe-hint {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding-left: 8px;
+    font-size: 20px;
+    font-style: normal;
+    line-height: 1;
+}
+
 .monitor-label {
     height: 42px;
     padding: 10px 7px 0;
@@ -536,8 +545,7 @@ button {
 
 .test-mode:not(.test-results) #timingChart,
 .test-mode:not(.test-results) #practiceScore,
-.test-mode:not(.test-results) #noteLight,
-.test-mode:not(.test-results) .volume-meter {
+.test-mode:not(.test-results) #noteLight {
   visibility: hidden;
 }
 
