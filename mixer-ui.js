@@ -45,7 +45,7 @@ notch.style.transform = `rotate(${-knobRotation}deg)`;
     bpmMonitor.textContent = `BPM ${String(bpm).padStart(3, "0")}`;
   }
 
-  rhythmDigits.textContent = String(isPlayMode ? playState.pattern[Math.max(0, playState.currentBeat)] : notesPerBeat.value).padStart(2, "0");
+  rhythmDigits.textContent = String(isPlayMode ? (playState.bufferBeat > 0 ? playState.nextPattern : playState.pattern)[Math.max(0, playState.currentBeat)] : notesPerBeat.value).padStart(2, "0");
   eventDigits.textContent = String(isPlayMode ? playState.detectedNotes : totalNotes.value).padStart(2, "0");
 
   const threshold = Number(onsetThresholdSlider.value);

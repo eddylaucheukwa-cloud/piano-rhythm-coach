@@ -1335,8 +1335,8 @@ function createPlayEvents(loopStartTime, pattern, bpm, loopNumber) {
 
 function renderPlayMode() {
   if (!playState) return;
-  const displayedPattern = playState.pattern;
-  const displayedLoop = playState.bufferBeat > 0 ? playState.completedLoops : playState.completedLoops + 1;
+  const displayedPattern = playState.bufferBeat > 0 ? playState.nextPattern : playState.pattern;
+  const displayedLoop = playState.completedLoops + 1;
   playDigits.forEach((digit, index) => {
     const text = String(displayedPattern[index]);
     if (digit.textContent !== text) digit.textContent = text;
@@ -1345,6 +1345,7 @@ function renderPlayMode() {
     const missed = beatEvents.some(event => event.result === "Missed");
     digit.classList.toggle("timing-missed", missed);
     digit.classList.toggle("timing-warning", !missed && beatEvents.some(event => event.result === "Early" || event.result === "Late"));
+    digit.classList.toggle("timing-correct", beatEvents.length > 0 && beatEvents.every(event => event.result === "On Beat"));
   });
   const patternText = displayedPattern.join("");
   if (playState.announcedPattern !== patternText) {

@@ -602,6 +602,7 @@ button {
   border-bottom-color: currentColor;
   text-shadow: 0 0 6px currentColor;
 }
+.play-pattern span.timing-correct { color: var(--green); opacity: 1; }
 .play-pattern span.timing-warning { color: #f6c453; opacity: 1; }
 .play-pattern span.timing-missed { color: #f54444; opacity: 1; }
 #playFeedback { font-size: 11px; }

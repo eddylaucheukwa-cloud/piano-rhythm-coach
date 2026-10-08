@@ -446,7 +446,7 @@ test('every play loop has exactly two buffer beats with no scheduled notes', () 
   assert.equal(app.element('playBeat1').classList.contains('active'), true);
 });
 
-test('play beat digits turn yellow for early/late notes, red for misses, and retain results through the buffer', () => {
+test('play beat digits light yellow, red, or green for judged beats and reset for the buffer preview', () => {
   const app = loadApp();
   startPlay(app);
   const times = vm.runInContext('expectedEvents.filter(event => event.loop === 1).map(event => event.time)', app.context);
@@ -462,12 +462,38 @@ test('play beat digits turn yellow for early/late notes, red for misses, and ret
   assert.equal(app.element('playBeat3').classList.contains('timing-warning'), false);
   assert.equal(app.element('playBeat4').classList.contains('timing-warning'), false);
   assert.equal(app.element('playBeat4').classList.contains('timing-missed'), false);
+  assert.equal(app.element('playBeat4').classList.contains('timing-correct'), true);
+  assert.equal(app.element('playBeat1').classList.contains('timing-correct'), false);
   app.context.performance.now = () => 9000;
   vm.runInContext('advancePlayMode()', app.context);
-  assert.equal(app.element('playBeat1').classList.contains('timing-warning'), true);
-  assert.equal(app.element('playBeat3').classList.contains('timing-missed'), true);
+  for (let beat = 1; beat <= 4; beat++) {
+    for (const status of ['timing-warning', 'timing-missed', 'timing-correct']) {
+      assert.equal(app.element(`playBeat${beat}`).classList.contains(status), false);
+    }
+  }
   app.context.performance.now = () => 11000;
   vm.runInContext('advancePlayMode()', app.context);
   assert.equal(app.element('playBeat1').classList.contains('timing-warning'), false);
   assert.equal(app.element('playBeat3').classList.contains('timing-missed'), false);
+});
+
+test('both buffer beats preview the next pattern before its playing loop starts', () => {
+  const app = loadApp();
+  startPlay(app);
+  vm.runInContext('Math.random = () => 0', app.context);
+  app.context.performance.now = () => 11000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.pattern.join("")', app.context), '2341');
+  for (const time of [15000, 16000]) {
+    app.context.performance.now = () => time;
+    vm.runInContext('advancePlayMode()', app.context);
+    assert.equal([1, 2, 3, 4].map(beat => app.element(`playBeat${beat}`).textContent).join(''), '1111');
+    assert.equal(vm.runInContext('playState.pattern.join("")', app.context), '2341');
+    assert.equal(app.element('playPattern')['aria-label'], 'Four beats: 1, 1, 1, 1 notes per beat');
+  }
+  app.context.performance.now = () => 17000;
+  vm.runInContext('advancePlayMode()', app.context);
+  assert.equal(vm.runInContext('playState.pattern.join("")', app.context), '1111');
+  assert.equal(app.element('playBeat1').classList.contains('active'), true);
+  assert.equal(app.element('playBeat1').classList.contains('timing-correct'), false);
 });
