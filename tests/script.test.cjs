@@ -9,7 +9,8 @@ function loadApp(calibration = null) {
   const timeouts = new Map();
   let nextInterval = 0;
   let nextTimeout = 0;
-  const canvasContext = new Proxy({}, { get: (target, key) => target[key] ?? (() => {}) });
+  let chartDraws = 0;
+  const canvasContext = new Proxy({ clearRect() { chartDraws++; } }, { get: (target, key) => target[key] ?? (() => {}) });
   function element(id) {
     if (!elements.has(id)) {
       const handlers = new Map();
@@ -28,6 +29,8 @@ function loadApp(calibration = null) {
         },
         addEventListener: (name, handler) => handlers.set(name, handler),
         click() { handlers.get('click')?.(); },
+        dispatch(name, event) { handlers.get(name)?.(event); },
+        setPointerCapture() {},
         getContext: () => canvasContext,
         pause() {}, load() {}, removeAttribute(name) { this[name] = ''; },
         appendChild() {}, scrollHeight: 0, scrollTop: 0,
@@ -65,7 +68,7 @@ function loadApp(calibration = null) {
     console: { log() {}, error() {} },
   });
   vm.runInContext(fs.readFileSync(require.resolve('../script.js'), 'utf8'), context);
-  return { context, elements, intervals, timeouts, element };
+  return { context, elements, intervals, timeouts, element, get chartDraws() { return chartDraws; } };
 }
 
 test('playback light pulses on each metronome beat', () => {
@@ -151,4 +154,92 @@ test('calibration accepts an onset 500 ms after the scheduled beat', () => {
   vm.runInContext('expectedEvents = [{ number: 1, time: 1000, detectedTime: null, result: null }]', app.context);
   vm.runInContext('matchCalibrationOnset(1500)', app.context);
   assert.equal(vm.runInContext('expectedEvents[0].result', app.context), 'Matched');
+});
+
+function startTest(app) {
+  vm.runInContext('microphoneStream = {}; previousFrequencyData = new Uint8Array(4); setTestMode(true)', app.context);
+  app.element('startPracticeButton').click();
+}
+
+test('title swipes select test/practice modes and ignore vertical or cancelled gestures', () => {
+  const app = loadApp();
+  const title = app.element('modeTitle');
+  const down = () => title.dispatch('pointerdown', { isPrimary: true, button: 0, pointerId: 1, clientX: 200, clientY: 20 });
+  const up = (x, y = 20) => title.dispatch('pointerup', { pointerId: 1, clientX: x, clientY: y });
+  down(); up(100, 160);
+  assert.equal(vm.runInContext('isTestMode', app.context), false);
+  down(); title.dispatch('pointercancel', {}); up(100);
+  assert.equal(vm.runInContext('isTestMode', app.context), false);
+  down(); up(100);
+  assert.equal(title.textContent, 'TEST MODE');
+  assert.equal(app.element('coachConsole').classList.contains('test-mode'), true);
+  down(); up(260);
+  assert.equal(title.textContent, 'PIANO RHYTHM COACH');
+  assert.equal(app.element('coachConsole').classList.contains('test-mode'), false);
+});
+
+test('test mode plays exactly four count-in clicks and then stops beat flashing', () => {
+  const app = loadApp();
+  let clicks = 0;
+  app.context.playClick = () => { clicks++; };
+  startTest(app);
+  const practiceBeat = [...app.intervals.values()].find(({ delay }) => delay === 500).callback;
+  for (let i = 0; i < 8; i++) practiceBeat();
+  assert.equal(clicks, 4);
+  assert.equal(app.element('playbackButton').classList.contains('beat-flash'), false);
+  assert.equal([...app.intervals.values()].some(({ delay }) => delay === 500), false);
+});
+
+test('test mode hides live results, stops recording on the final note, and resets for a new test', () => {
+  const app = loadApp();
+  startTest(app);
+  for (const time of [3000, 3500, 4000]) {
+    app.context.performance.now = () => time;
+    vm.runInContext(`matchSoundToExpectedEvent(${time})`, app.context);
+  }
+  assert.equal(app.chartDraws, 0);
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), true);
+  assert.equal(vm.runInContext('mediaRecorder.state', app.context), 'recording');
+  vm.runInContext('setTestMode(false)', app.context);
+  assert.equal(vm.runInContext('isTestMode', app.context), true);
+  app.context.performance.now = () => 4500;
+  vm.runInContext('matchSoundToExpectedEvent(4500)', app.context);
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), false);
+  assert.equal(vm.runInContext('mediaRecorder.state', app.context), 'inactive');
+  assert.equal(app.intervals.size, 0);
+  assert.equal(app.element('coachConsole').classList.contains('test-results'), true);
+  assert.equal(app.chartDraws, 1);
+  assert.match(app.element('practiceScore').textContent, /100\.0%/);
+  app.element('startPracticeButton').click();
+  assert.equal(app.element('coachConsole').classList.contains('test-results'), false);
+  assert.equal(vm.runInContext('expectedEvents.every(event => event.result === null)', app.context), true);
+  app.element('stopPracticeButton').click();
+  assert.equal(app.intervals.size, 0);
+  assert.equal(vm.runInContext('mediaRecorder.state', app.context), 'inactive');
+});
+
+test('test completion waits for calibrated final deadline even with missing notes', () => {
+  const app = loadApp({ offsetMs: 300 });
+  startTest(app);
+  const progress = [...app.intervals.values()].find(({ delay }) => delay === 25).callback;
+  app.context.performance.now = () => 4979;
+  progress();
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), true);
+  app.context.performance.now = () => 4981;
+  progress();
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), false);
+  assert.equal(vm.runInContext('expectedEvents.every(event => event.result === "Missed")', app.context), true);
+  assert.equal(vm.runInContext('mediaRecorder.state', app.context), 'inactive');
+  assert.equal(app.intervals.size, 0);
+});
+
+test('calibration remains visible in test mode and applying it restores the BPM screen', () => {
+  const app = loadApp();
+  vm.runInContext('microphoneStream = {}; previousFrequencyData = new Uint8Array(4); setTestMode(true); startCalibration()', app.context);
+  assert.equal(app.element('coachConsole').classList.contains('test-mode'), false);
+  assert.equal(vm.runInContext('mode', app.context), 'calibrating');
+  vm.runInContext('mode = "calibration-result"; pendingCalibration = { offsetMs: 100 }; applyCalibration()', app.context);
+  assert.equal(app.element('coachConsole').classList.contains('test-mode'), true);
+  assert.equal(vm.runInContext('mode', app.context), 'idle');
+  assert.match(app.element('practiceStatus').textContent, /Calibration applied/);
 });

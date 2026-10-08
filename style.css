@@ -57,6 +57,9 @@ button {
 }
 
 .title-lcd {
+    touch-action: pan-y;
+    user-select: none;
+    cursor: ew-resize;
     height: 39px;
     padding: 10px;
     border-radius: 5px;
@@ -508,6 +511,27 @@ button {
   box-shadow: inset 1px 0 #f4f4f4, inset -1px 0 #383838;
   transition: background-position 130ms ease-out;
   pointer-events: none;
+}
+
+.test-mode:not(.test-results) #timingChart,
+.test-mode:not(.test-results) #practiceScore,
+.test-mode:not(.test-results) #noteLight,
+.test-mode:not(.test-results) .volume-meter {
+  visibility: hidden;
+}
+
+.test-mode:not(.test-results) .bpm-monitor {
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(32px, 10vw, 48px);
+  letter-spacing: 3px;
+}
+
+.title-lcd:focus-visible {
+  outline: 3px solid #267d48;
+  outline-offset: 4px;
 }
 
 .notes-wheel.is-dragging .notes-wheel-face { transition: none; }

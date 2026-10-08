@@ -59,6 +59,47 @@ const practiceScore = document.getElementById("practiceScore");
 const practiceResults = document.getElementById("practiceResults");
 const timingChart = document.getElementById("timingChart");
 const timingChartContext = timingChart.getContext("2d");
+const bpmMonitor = document.getElementById("bpmMonitor");
+const coachConsole = document.getElementById("coachConsole");
+const modeTitle = document.getElementById("modeTitle");
+let isTestMode = false;
+let testProgressTimer = null;
+let titleSwipe = null;
+
+function setTestMode(enabled) {
+  if (mode !== "idle" || isPracticeRunning) return;
+  isTestMode = enabled;
+  coachConsole.classList.toggle("test-mode", enabled);
+  coachConsole.classList.remove("test-results");
+  modeTitle.textContent = enabled ? "TEST MODE" : "PIANO RHYTHM COACH";
+  practiceStatus.textContent = enabled
+    ? "Test mode: 4-beat count-in, then keep the rhythm without clicks."
+    : "Practice mode: metronome and live timing chart.";
+}
+
+modeTitle.addEventListener("pointerdown", (event) => {
+  if (!event.isPrimary || event.button !== 0) return;
+  titleSwipe = { x: event.clientX, y: event.clientY, id: event.pointerId };
+  modeTitle.setPointerCapture(event.pointerId);
+});
+modeTitle.addEventListener("pointerup", (event) => {
+  if (!titleSwipe || event.pointerId !== titleSwipe.id) return;
+  const dx = event.clientX - titleSwipe.x;
+  const dy = event.clientY - titleSwipe.y;
+  titleSwipe = null;
+  if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)) {
+    setTestMode(dx < 0);
+  }
+});
+["pointercancel", "lostpointercapture"].forEach((eventName) => {
+  modeTitle.addEventListener(eventName, () => { titleSwipe = null; });
+});
+modeTitle.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    event.preventDefault();
+    setTestMode(event.key === "ArrowLeft");
+  }
+});
 let isPracticeRunning = false;
 let practiceStartTime = 0;
 let practiceTimer = null;
@@ -175,7 +216,7 @@ micButton.addEventListener("click", () => {
     return;
   }
 
-  if (mode === "calibrating") {
+  if (mode === "calibrating" || isPracticeRunning) {
     return;
   }
 
@@ -677,6 +718,7 @@ function startCalibration() {
   } = schedule;
 
 mode = "calibrating";
+coachConsole.classList.remove("test-mode", "test-results");
 
 bpmMonitor.style.color = "#72ff9a";
 bpmMonitor.style.textShadow =
@@ -1005,6 +1047,7 @@ function applyCalibration() {
 
   pendingCalibration = null;
   mode = "idle";
+  setTestMode(isTestMode);
 
   practiceStatus.textContent =
     `Calibration applied: ` +
@@ -1365,9 +1408,15 @@ function matchSoundToExpectedEvent(soundTime) {
 function startPracticeMetronome() {
   const bpm = Number(bpmSlider.value);
   const intervalMs = 60000 / bpm;
+  let countInBeats = 0;
 
   function practiceBeat() {
+    if (isTestMode && countInBeats >= 4) {
+      stopPracticeMetronome();
+      return;
+    }
     beat();
+    countInBeats++;
     playbackButton.classList.add("beat-flash");
     clearTimeout(playbackLightOffTimer);
     playbackLightOffTimer = setTimeout(() => {
@@ -1413,6 +1462,8 @@ timingWindowMs = Math.max(
 );
   mode = "practice";
 isPracticeRunning = true;
+coachConsole.classList.toggle("test-mode", isTestMode);
+coachConsole.classList.remove("test-results");
 /* Transport icon state: practice / recording */
 startPracticeButton.classList.remove("lamp-green");
 stopPracticeButton.classList.add("lamp-red");
@@ -1439,6 +1490,9 @@ window.updateTransportLamps?.();
   createExpectedEvents();
 startRecording();
 startPracticeMetronome();
+if (isTestMode) {
+  testProgressTimer = setInterval(updatePracticeDisplay, 25);
+}
 
 
   bpmSlider.disabled = true;
@@ -1450,7 +1504,8 @@ startPracticeMetronome();
   drawTimingChart();
   practiceStatus.textContent =
     `4-beat count-in, then play ${totalNotes.value} events at ` +
-    `${bpm} BPM (${subdivision} notes per beat).`;
+    `${bpm} BPM (${subdivision} notes per beat).` +
+    (isTestMode ? " Keep the rhythm without clicks until the test ends." : "");
 
 }
 
@@ -1460,9 +1515,12 @@ function stopPractice() {
   }
 
   isPracticeRunning = false;
+clearInterval(testProgressTimer);
+testProgressTimer = null;
 stopPracticeMetronome();
 stopRecording();
   mode = "idle";
+coachConsole.classList.toggle("test-results", isTestMode);
 /* Transport icon state: practice stopped */
 startPracticeButton.classList.add("lamp-green");
 stopPracticeButton.classList.remove("lamp-red");
@@ -1509,7 +1567,8 @@ const calibrationOffsetMs = calibration
     `(${matchedEvents.length}/${completedEvents.length})`;
 
   practiceStatus.textContent =
-    "Practice stopped. Check each event below.";
+    isTestMode ? "Test finished. Check your timing results."
+      : "Practice stopped. Check each event below.";
 
 
   bpmSlider.disabled = false;
@@ -1517,6 +1576,7 @@ const calibrationOffsetMs = calibration
   totalNotes.disabled = false;
 }
 function drawTimingChart() {
+  if (isTestMode && isPracticeRunning) return;
   const canvas = timingChart;
   const ctx = timingChartContext;
   const width = canvas.width;
@@ -1848,6 +1908,13 @@ function updatePracticeDisplay() {
   const dueEvents = expectedEvents.filter(
     (event) => event.result !== null
   );
+
+  if (isTestMode && isPracticeRunning) {
+    if (expectedEvents.length > 0 && dueEvents.length === expectedEvents.length) {
+      stopPractice();
+    }
+    return;
+  }
 
   const matchedEvents = dueEvents.filter(
     (event) => event.detectedTime !== null

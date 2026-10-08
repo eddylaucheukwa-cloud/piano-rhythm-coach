@@ -9,7 +9,6 @@ const wheel = document.getElementById("notesWheel");
 const playback = document.getElementById("playbackButton");
 const audio = document.getElementById("recordedAudio");
 const fader = document.getElementById("sensitivityHandle");
-const bpmMonitor = document.getElementById("bpmMonitor");
 const MIN = 40;
 const MAX = 180;
 const START = -135;
@@ -53,12 +52,14 @@ notch.style.transform = `rotate(${-knobRotation}deg)`;
 }
 
 function setTempo(value) {
+  if (bpmSlider.disabled) return;
   bpmSlider.value = Math.max(MIN, Math.min(MAX, Math.round(value)));
   bpmSlider.dispatchEvent(new Event("input"));
   syncMixer();
 }
 
 function changeRhythm(delta) {
+  if (notesPerBeat.disabled) return;
   const current = Number(notesPerBeat.value);
   const next = Math.max(1, Math.min(4, current + delta));
 
@@ -85,6 +86,7 @@ function notesHapticFeedback() {
   lastNotesHapticTime = now;
 }
 function changeNotes(delta) {
+  if (totalNotes.disabled) return;
   const current = Number(totalNotes.value);
   const next = Math.max(1, Math.min(100, current + delta));
 
