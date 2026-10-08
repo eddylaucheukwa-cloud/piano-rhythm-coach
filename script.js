@@ -97,6 +97,7 @@ modeTitle.addEventListener("pointermove", (event) => {
   const dx = event.clientX - titleSwipe.x;
   const dy = event.clientY - titleSwipe.y;
   if (Math.abs(dx) <= Math.abs(dy)) return;
+  if (Math.abs(dx) >= 6) modeTitle.classList.add("is-swipe-moving");
   const position = titleSwipe.position - dx / titleSwipe.width;
   const bounded = Math.max(0, Math.min(1, position));
   const resisted = bounded + (position - bounded) * 0.18;
@@ -111,7 +112,7 @@ modeTitle.addEventListener("pointerup", (event) => {
   const shouldSwitch = Math.abs(dx) >= threshold ||
     (Math.abs(dx) >= 32 && Math.abs(dx) / elapsed > 0.45);
   titleSwipe = null;
-  modeTitle.classList.remove("is-swiping");
+  modeTitle.classList.remove("is-swiping", "is-swipe-moving");
   modeTitle.style.setProperty("--mode-offset", isTestMode ? "-50%" : "0%");
   if (shouldSwitch && Math.abs(dx) > Math.abs(dy) && (dx < 0) !== isTestMode) {
     setTestMode(dx < 0);
@@ -121,7 +122,7 @@ modeTitle.addEventListener("pointerup", (event) => {
   modeTitle.addEventListener(eventName, () => {
     if (!titleSwipe) return;
     titleSwipe = null;
-    modeTitle.classList.remove("is-swiping");
+    modeTitle.classList.remove("is-swiping", "is-swipe-moving");
     modeTitle.style.setProperty("--mode-offset", isTestMode ? "-50%" : "0%");
   });
 });

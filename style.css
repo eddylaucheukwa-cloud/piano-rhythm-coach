@@ -94,6 +94,8 @@ button {
 .title-lcd.is-swiping .mode-title-track { transition: none; }
 
 .mode-swipe-hint {
+    opacity: 0;
+    transition: opacity 120ms ease;
     flex: 0 0 auto;
     margin-left: auto;
     padding-left: 8px;
@@ -101,6 +103,8 @@ button {
     font-style: normal;
     line-height: 1;
 }
+
+.title-lcd.is-swipe-moving .mode-swipe-hint { opacity: 1; }
 
 .monitor-label {
     height: 42px;
@@ -1045,6 +1049,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mode-title-track { transition: none; }
+  .mode-title-track, .mode-swipe-hint { transition: none; }
   .hardware-key, .mic-key, .step-buttons button, .notes-wheel { transition: none; }
 }
