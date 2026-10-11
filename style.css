@@ -938,7 +938,7 @@ body {
   width: min(412px, calc(100vw - 28px));
   height: auto;
   min-height: 0;
-  padding: 32px 24px 41px;
+  padding: 32px 24px 66px;
   transform: none;
   border: 1px solid #dadcd6;
   border-radius: 20px;
@@ -1051,27 +1051,6 @@ body {
   margin-inline: auto;
 }
 
-/* Reserve this row in every mode so the physical controls never shift. */
-.auxiliary-controls {
-  display: grid;
-  justify-items: center;
-  grid-template-rows: 20px 28px;
-  gap: 5px;
-  margin-top: 20px;
-}
-.auxiliary-controls .mic-key { margin: 0; }
-.auxiliary-controls .reference-key {
-  visibility: hidden;
-  pointer-events: none;
-  width: 170px;
-  height: 20px;
-  padding: 0 3px;
-  color: #6f756e;
-  font: 500 10px "Barlow Condensed", "Arial Narrow", sans-serif;
-  box-shadow: 0 3px 0 #757874, inset 1px 1px #fff;
-}
-.phasing-mode .reference-key { visibility: visible; pointer-events: auto; }
-
 .step-buttons button:active,
 .step-buttons button.is-pressed {
   transform: translateY(2px);
@@ -1090,7 +1069,7 @@ body {
 }
 
 @media (max-width: 600px) {
-  .console { padding-top: 24px; padding-bottom: 17px; }
+  .console { padding-top: 24px; padding-bottom: 42px; }
   .mic-key { margin-top: 20px; }
 }
 
@@ -1109,7 +1088,7 @@ body {
   body { padding: 6px 8px; }
   .console {
     width: min(412px, calc(100vw - 16px));
-    padding: 12px 16px calc(clamp(34px, 5dvh, 54px) - 25px);
+    padding: 12px 16px clamp(34px, 5dvh, 54px);
   }
   .console::before, .console::after { bottom: 7px; }
   .title-lcd { height: 35px; padding: 8px 10px; }
@@ -1133,7 +1112,6 @@ body {
   .transport { margin-top: 14px; gap: 10px; }
   .hardware-key, .start-key { height: 60px; }
   .mic-key { height: 27px; margin-top: 12px; }
-  .auxiliary-controls { grid-template-rows: 20px 27px; margin-top: 12px; }
 }
 
 @media (max-width: 340px) {

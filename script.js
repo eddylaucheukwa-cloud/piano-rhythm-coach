@@ -81,15 +81,13 @@ const playFeedback = document.getElementById("playFeedback");
 const playNext = document.getElementById("playNext");
 let testProgressTimer = null;
 let titleSwipe = null;
-const phasingReferenceButton = document.getElementById("phasingReferenceButton");
+// PHASING reuses the physical microphone/calibration button.
+const phasingReferenceButton = micButton;
 const phasingHelp = document.getElementById("phasingHelp");
 let phasingReference = null;
 let phasingReferenceSession = false;
 let phasingAutoGain = false;
 
-phasingReferenceButton.addEventListener("click", () => {
-  if (isPhasingMode && mode === "idle" && !isPracticeRunning) startPractice(true);
-});
 for (const control of [bpmSlider, notesPerBeat, totalNotes]) {
   control.addEventListener("input", () => {
     if (isPhasingMode && mode === "idle") renderPhasingMode();
@@ -133,9 +131,16 @@ function setCoachMode(nextMode) {
     renderPlayMode();
   }
   window.syncMixer?.();
-  if (isPhasingMode) renderPhasingMode();
+  if (isPhasingMode) {
+    micButton.setAttribute("aria-describedby", "phasingHelp");
+    renderPhasingMode();
+  }
   else {
     phasingReferenceButton.disabled = false;
+    micButton.removeAttribute("aria-describedby");
+    micButton.textContent = !microphoneStream ? "ALLOW MICROPHONE"
+      : calibration ? `CAL: ${calibration.offsetMs >= 0 ? "+" : ""}${calibration.offsetMs}ms · TAP TO RE-CALIBRATE`
+        : "ADJUST LATENCY";
     if (wasPhasingMode && !isPlayMode) drawTimingChart();
   }
   practiceStatus.textContent = isPlayMode
@@ -333,7 +338,20 @@ function showVolume() {
   requestAnimationFrame(showVolume);
 }
 
-micButton.addEventListener("click", () => {
+micButton.addEventListener("click", async () => {
+  if (isPhasingMode && mode === "idle") {
+    if (isPracticeRunning) return;
+    if (!microphoneStream) {
+      micButton.disabled = true;
+      await startMicrophone();
+      if (!microphoneStream || !analyser) {
+        micButton.disabled = false;
+        return;
+      }
+    }
+    startPractice(true);
+    return;
+  }
   if (!microphoneStream) {
     startMicrophone();
     return;
@@ -2239,9 +2257,9 @@ function renderPhasingMode() {
   const onBeat = due.filter(event => event.result === "On Beat").length;
   const timing = due.length ? Math.round(onBeat / due.length * 100) : "--";
   practiceScore.textContent = `TIME ${timing}% · SHAPE ${analysis.score ?? "--"}%`;
-  phasingReferenceButton.disabled = !microphoneStream || mode !== "idle" || isPracticeRunning;
+  phasingReferenceButton.disabled = mode !== "idle" || isPracticeRunning;
   phasingReferenceButton.textContent = analysis.referenceReady ? "RESET LEVEL REFERENCE" : "SET LEVEL REFERENCE";
-  phasingHelp.textContent = !microphoneStream ? "Allow microphone, then record an even-touch reference."
+  phasingHelp.textContent = !microphoneStream ? "Press SET LEVEL REFERENCE to allow the mic and record an even-touch scale."
     : phasingAutoGain ? "Automatic mic level is active; loudness is a guide, not a reliable grade."
     : phasingReferenceSession ? isPracticeRunning
       ? "Play your whole scale with an even touch. Keep the mic still."

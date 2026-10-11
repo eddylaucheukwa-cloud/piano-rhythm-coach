@@ -504,7 +504,7 @@ test('both buffer beats preview the next pattern before its playing loop starts'
 
 function startPhasing(app, reference = false) {
   vm.runInContext('microphoneStream={};previousFrequencyData=new Uint8Array(4);bpmSlider.value="120";notesPerBeat.value="1";totalNotes.value="5";setCoachMode("phasing")', app.context);
-  app.element(reference ? 'phasingReferenceButton' : 'startPracticeButton').click();
+  app.element(reference ? 'micButton' : 'startPracticeButton').click();
 }
 
 function playLevels(app, levels, offsets = [], clipped = false) {
@@ -557,7 +557,7 @@ test('phasing without a reference or after settings changes shows loudness witho
   startPhasing(app); playLevels(app, [-40, -36, -32, -36, -40]);
   assert.equal(vm.runInContext('getPhasingAnalysis().score', app.context), null);
   assert.match(app.element('phasingHelp').textContent, /reference/);
-  app.element('phasingReferenceButton').click(); playLevels(app, [-40, -40, -40, -40, -40]);
+  app.element('micButton').click(); playLevels(app, [-40, -40, -40, -40, -40]);
   vm.runInContext('bpmSlider.value="130"', app.context);
   assert.equal(vm.runInContext('getPhasingAnalysis().referenceReady', app.context), false);
 });
@@ -578,7 +578,7 @@ test('distorted or auto-levelled input cannot create a trustworthy loudness refe
   startPhasing(app, true); playLevels(app, [-3, -3, -3, -3, -3], [], true);
   assert.equal(vm.runInContext('phasingReference', app.context), null);
   vm.runInContext('phasingAutoGain=true', app.context);
-  app.element('phasingReferenceButton').click(); playLevels(app, [-40, -40, -40, -40, -40]);
+  app.element('micButton').click(); playLevels(app, [-40, -40, -40, -40, -40]);
   assert.equal(vm.runInContext('phasingReference', app.context), null);
   assert.match(app.element('phasingHelp').textContent, /Automatic mic level/);
 });
@@ -649,4 +649,21 @@ test('phasing reads the recent attack level while preserving the original detect
   assert.equal(vm.runInContext('expectedEvents[0].detectedTime', app.context), firstTime);
   assert.equal(vm.runInContext('expectedEvents[0].levelDb', app.context), 20 * Math.log10(20 / 128));
   assert.equal(vm.runInContext('expectedEvents[0].clipped', app.context), true);
+});
+
+test('phasing reuses the latency button and restores its original action when leaving', () => {
+  const app = loadApp();
+  vm.runInContext('setCoachMode("phasing")', app.context);
+  assert.equal(app.element('micButton').textContent, 'SET LEVEL REFERENCE');
+  assert.equal(app.element('micButton').disabled, false);
+  vm.runInContext('setCoachMode("practice")', app.context);
+  assert.equal(app.element('micButton').textContent, 'ALLOW MICROPHONE');
+  startPhasing(app, true);
+  assert.equal(vm.runInContext('phasingReferenceSession && isPracticeRunning', app.context), true);
+  assert.equal(app.element('micButton').disabled, true);
+  app.element('stopPracticeButton').click();
+  vm.runInContext('setCoachMode("practice")', app.context);
+  assert.equal(app.element('micButton').textContent, 'ADJUST LATENCY');
+  app.element('micButton').click();
+  assert.equal(vm.runInContext('mode', app.context), 'calibrating');
 });
