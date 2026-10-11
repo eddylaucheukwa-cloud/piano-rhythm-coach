@@ -18,7 +18,7 @@ The app runs in your browser. Microphone permission is required for note detecti
 
 ## Detection and dynamics
 
-On supported browsers, microphone analysis runs in an AudioWorklet with a 256-sample analysis hop and adaptive spectral-flux thresholds. Attack levels use the strongest short-window energy after each onset; timestamps retain the onset time. Deadline assessment waits for audio-thread messages so a busy UI does not prematurely mark queued notes as missed. A browser without AudioWorklet uses an 8 ms analyser fallback. Previous latency calibrations from another detector version are cleared when connecting: run **ADJUST LATENCY** again after this update.
+Note detection uses the original animation-frame analyser, spectral-flux thresholds, peak ratio and volume gate from the version before PHASING. PHASING additionally records the strongest RMS level from the three latest frames without changing onset decisions. Calibrations made with the reverted newer detector are cleared when connecting; run **ADJUST LATENCY** again if necessary. All modes share the same physical console layout; PHASING instructions stay inside the monitor, and the reference button has a reserved position above **ADJUST LATENCY**.
 
 A level reference compensates the measured gain of each position in the same note sequence; it does not identify pitches. SHAPE is a relative curve-correlation guide, not a measurement of finger force or MIDI velocity. At least 80% of notes (minimum 5), a valid reference and 3 dB of contrast are needed for a meaningful shape result. Missing/incomplete references, clipping or reported microphone auto gain prevent grading. Keep the scale, touch reference, microphone, tempo and pedal use consistent; hardware gain, room sound and overlapping notes can still affect results. No new real-piano accuracy percentage is claimed from synthetic tests.
 
@@ -33,7 +33,7 @@ python -m http.server 8765
 Open http://localhost:8765/ in your browser. To run the included regression tests, install Node.js and run:
 
 ```sh
-node --test tests/script.test.cjs tests/audio-onset.test.cjs
+node --test tests/script.test.cjs
 ```
 
 ## Project files
@@ -41,10 +41,8 @@ node --test tests/script.test.cjs tests/audio-onset.test.cjs
 - `index.html` — interface and controls
 - `style.css` — responsive hardware-inspired design
 - `script.js` — microphone, metronome, calibration, practice, and recording
-- `audio-onset.js` — audio-thread onset detection and attack-level measurement
 - `mixer-ui.js` — dial, slider, transport, and mobile interaction
 - `tests/script.test.cjs` — focused behaviour tests
-- `tests/audio-onset.test.cjs` — synthetic quiet-note, repetition, noise and dynamics tests
 
 ## 中文使用說明
 
@@ -58,7 +56,7 @@ Piano Rhythm Coach 是在瀏覽器運作的鋼琴節奏練習工具。它會播�
 6. 在 TEST MODE 再左滑一次，進入 **PHASING MODE**。螢幕上方顯示強弱曲線，下方顯示節奏偏差，TIME 和 SHAPE 分別表示準拍比例及曲線貼合度。NOTES 至少設定 5 個音。先按 **SET LEVEL REFERENCE**，四拍預備後以相同力度完整彈奏一次音階，建立每個音的收音基準。咪高峰位置保持固定，再按 **START**，彈奏同一組音符，力度由弱漸強、再漸弱。所有音符判定後自動停止錄音，可按 **PLAYBACK** 重聽。更換音階、移動咪高峰，或調整 TEMPO、RHYTHM、NOTES 後，需重新建立收音基準。
 7. 在 PHASING MODE 再左滑三次，就會進入彩蛋 **PLAY MODE**。每次遊戲從 60 BPM、四拍預備開始。四個數字代表四拍各要平均彈奏多少個音符，例如 `2341` 是依次彈 2、3、4、1 下。每個循環都會產生隨機組合，**NEXT** 提前顯示下一組，並突出顯示目前拍子。每輪四拍演奏後有兩拍緩衝，大字立即切換到下一組，讓你提前熟悉：提早或延遲亮黃燈，漏彈亮紅燈，整拍音符準確則亮綠燈，三種顏色亮度一致。每完成四輪，在緩衝後的下一輪加 5 BPM，節拍器持續播放。RHYTHM 和 NOTES 控制器保留正常外觀，但遊戲期間操作不會改變設定。按 **STOP** 結束、查看圖表和重聽錄音；右滑先返回 PHASING MODE，再返回 TEST MODE。也可以聚焦標題後用方向鍵操作。
 
-新版本改善漏偵測時採用獨立音訊執行緒；更新後請重新按 **ADJUST LATENCY** 校正。收音基準只補償同一音符順序中的音量差異，不能識別是否彈了相同音高，也不代表真正的按鍵力度。SHAPE 是相對曲線指標；無基準、收音失真或咪高峰自動調整音量時不會評分。若改變音階、咪高峰位置或踏板習慣，請重新建立基準。
+音符偵測已回復加入 PHASING 前的版本，PHASING 仍會額外記錄音量以顯示強弱曲線。新版偵測器的延遲校正會清除，必要時請重新按 **ADJUST LATENCY** 校正。所有模式維持相同機身及實體控制位置，PHASING 提示放在螢幕內，基準設定按鈕則固定在 **ADJUST LATENCY** 上方。收音基準只補償同一音符順序中的音量差異，不能識別是否彈了相同音高，也不代表真正的按鍵力度。SHAPE 是相對曲線指標；無基準、收音失真或咪高峰自動調整音量時不會評分。若改變音階、咪高峰位置或踏板習慣，請重新建立基準。
 
 ## License
 

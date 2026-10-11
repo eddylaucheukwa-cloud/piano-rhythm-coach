@@ -390,6 +390,8 @@ function fitPhonePanel() {
   const available = (window.visualViewport?.height ?? window.innerHeight) - outerSpace - 5;
   const scale = Math.min(1, available / consolePanel.getBoundingClientRect().height);
   if (scale < 1) consolePanel.style.zoom = String(scale);
+  syncMixer();
+  if (isPhasingMode) renderPhasingMode();
 }
 fitPhonePanel();
 document.fonts?.ready.then(fitPhonePanel);

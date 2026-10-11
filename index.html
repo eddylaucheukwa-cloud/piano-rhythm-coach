@@ -28,10 +28,9 @@
             <p id="playNext">NEXT 1234</p>
         </div>
         <output id="bpmMonitor" class="bpm-monitor">BPM 060</output>
-        </section>
         <section class="phasing-tools" aria-label="Scale loudness reference">
-            <button id="phasingReferenceButton" type="button">SET LEVEL REFERENCE</button>
             <p id="phasingHelp" aria-live="polite">Play the same scale with an even touch first.</p>
+        </section>
         </section>
         <section class="control-row">
             <div class="tempo-zone">
@@ -92,7 +91,10 @@
         aria-label="Stop practice"><i></i></button>
             </div>
         </section>
-        <button id="micButton" class="hardware-key mic-key" type="button">ALLOW MICROPHONE</button>
+        <section class="auxiliary-controls" aria-label="Microphone and level reference">
+            <button id="phasingReferenceButton" class="hardware-key reference-key" type="button" aria-describedby="phasingHelp">SET LEVEL REFERENCE</button>
+            <button id="micButton" class="hardware-key mic-key" type="button">ALLOW MICROPHONE</button>
+        </section>
         <p id="micStatus" class="sr">Microphone not connected</p>
         <p id="practiceStatus" class="status">Connect microphone first</p>
         <div id="practiceResults" class="results"></div>

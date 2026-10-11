@@ -594,23 +594,59 @@ test('phasing requires enough notes and latency calibration restores its two-gra
   assert.equal(app.element('coachConsole').classList.contains('phasing-mode'), true);
 });
 
-test('fallback uses the actual peak frame volume even if the following frame is quiet', () => {
+test('restored detector uses the original volume gate, timestamp and animation-frame loop', () => {
   const app = loadApp(); startTest(app);
-  vm.runInContext('var sampleIndex=0;getCurrentVolume=()=>[0,20,1][sampleIndex];getSpectralFlux=()=>[0,1000,0][sampleIndex++]', app.context);
-  for (const time of [2992, 3000, 3008]) {
+  let scheduled = 0;
+  app.context.requestAnimationFrame = () => scheduled++;
+  vm.runInContext('var sampleIndex=0;audioData=new Uint8Array([128,140]);getCurrentVolume=()=>[0,20,1,20,20][sampleIndex];getSpectralFlux=()=>[0,1000,0,1200,0][sampleIndex++]', app.context);
+  for (const time of [2984, 3000, 3016]) {
     app.context.performance.now = () => time;
     vm.runInContext('checkForPianoSound()', app.context);
   }
-  assert.equal(vm.runInContext('expectedEvents[0].detectedTime', app.context), 3000);
+  assert.equal(vm.runInContext('expectedEvents[0].detectedTime', app.context), null);
+  for (const time of [3032, 3048]) {
+    app.context.performance.now = () => time;
+    vm.runInContext('checkForPianoSound()', app.context);
+  }
+  assert.equal(vm.runInContext('expectedEvents[0].detectedTime', app.context), 3032);
   assert.equal(vm.runInContext('expectedEvents[0].result', app.context), 'On Beat');
+  assert.equal(vm.runInContext('expectedEvents[0].levelDb', app.context), undefined);
+  assert.equal(scheduled, 5);
 });
 
-test('queued audio-thread messages are processed before missed-note deadlines advance', () => {
+test('restored detector keeps the original mean flux threshold and peak ratio', () => {
   const app = loadApp(); startTest(app);
-  vm.runInContext('onsetWorklet={port:{postMessage(){}}};onsetAnalyzedThroughMs=2999', app.context);
-  app.context.performance.now = () => 3300;
-  vm.runInContext('updatePracticeDisplay()', app.context);
-  assert.equal(vm.runInContext('expectedEvents[0].result', app.context), null);
-  vm.runInContext('handlePianoOnset(3000,{levelDb:-40,clipped:false});onsetAnalyzedThroughMs=3300;updatePracticeDisplay()', app.context);
-  assert.equal(vm.runInContext('expectedEvents[0].result', app.context), 'On Beat');
+  vm.runInContext('audioData=new Uint8Array([128]);getCurrentVolume=()=>20;getSpectralFlux=()=>2100;previousPreviousFlux=1900;previousFlux=2200;fluxHistory=[0,0,0,0,0,0,0,0,0,0]', app.context);
+  app.context.performance.now = () => 3000;
+  vm.runInContext('checkForPianoSound()', app.context);
+  assert.equal(vm.runInContext('expectedEvents[0].detectedTime', app.context), null);
+  assert.equal(vm.runInContext('dynamicFluxThreshold', app.context), 2100 / 11 * 2.2);
+});
+
+test('connecting the restored detector preserves old calibrations and clears newer-engine calibrations', async () => {
+  for (const engine of [undefined, 'analyser-v1', 'audio-worklet-v1', 'analyser-v2']) {
+    const app = loadApp({ offsetMs: 50, detectorEngine: engine });
+    let removed = false;
+    app.context.localStorage.removeItem = () => { removed = true; };
+    app.context.navigator = { mediaDevices: { getUserMedia: async () => ({ getAudioTracks: () => [{ getSettings: () => ({ autoGainControl: false }) }] }) } };
+    vm.runInContext('audioContext={state:"running",sampleRate:48000,createMediaStreamSource:()=>({connect(){}}),createAnalyser:()=>({frequencyBinCount:1024,getByteTimeDomainData(data){data.fill(128)},getByteFrequencyData(data){data.fill(0)}})}', app.context);
+    await vm.runInContext('startMicrophone()', app.context);
+    const valid = engine === undefined || engine === 'analyser-v1';
+    assert.equal(vm.runInContext('calibration !== null', app.context), valid);
+    assert.equal(removed, !valid);
+    assert.match(app.element('micStatus').textContent, /Listening/);
+  }
+});
+
+test('phasing reads the recent attack level while preserving the original detector timestamp', () => {
+  const app = loadApp(); startPhasing(app);
+  vm.runInContext('var sampleIndex=0;audioData=new Uint8Array([128,254]);getCurrentVolume=()=>[0,20,10][sampleIndex];getSpectralFlux=()=>[0,1000,0][sampleIndex++]', app.context);
+  const firstTime = vm.runInContext('expectedEvents[0].time', app.context);
+  for (const time of [firstTime - 16, firstTime, firstTime + 16]) {
+    app.context.performance.now = () => time;
+    vm.runInContext('checkForPianoSound()', app.context);
+  }
+  assert.equal(vm.runInContext('expectedEvents[0].detectedTime', app.context), firstTime);
+  assert.equal(vm.runInContext('expectedEvents[0].levelDb', app.context), 20 * Math.log10(20 / 128));
+  assert.equal(vm.runInContext('expectedEvents[0].clipped', app.context), true);
 });

@@ -144,7 +144,6 @@ function setCoachMode(nextMode) {
     : isTestMode
     ? "Test mode: 4-beat count-in, then keep the rhythm without clicks."
     : "Practice mode: metronome and live timing chart.";
-  window.fitPhonePanel?.();
 }
 
 function switchModeBySwipe(left) {
@@ -231,12 +230,12 @@ let timingWindowMs = 220;
 
 const fluxThresholdFloor = 350;
 const fluxMultiplier = 2.2;
+const peakRatio = 1.2;
 const fluxHistorySize = 24;
 
 onsetThresholdSlider.addEventListener("input", () => {
   onsetThreshold = Number(onsetThresholdSlider.value);
   onsetThresholdValue.textContent = onsetThreshold.toFixed(1);
-  configureOnsetDetector();
 });
 
 let mediaRecorder = null;
@@ -252,26 +251,7 @@ let pendingPeakFlux = 0;
 let pendingPeakTime = 0;
 let fluxHistory = [];
 let dynamicFluxThreshold = 0;
-let pendingPeakVolume = 0;
-let onsetWorklet = null;
-let onsetAnalyzedThroughMs = 0;
-let fallbackOnsetTimer = null;
-
-function configureOnsetDetector() {
-  onsetWorklet?.port.postMessage({ sensitivity: onsetThreshold, minimumGapMs });
-}
-
-function onsetDetectorEngine() {
-  return onsetWorklet ? "audio-worklet-v1" : "analyser-v2";
-}
-
-function handlePianoOnset(soundTime, measurement) {
-  lastOnsetTime = soundTime;
-  flashNoteLight(128 * Math.pow(10, measurement.levelDb / 20));
-  if (mode === "calibrating") matchCalibrationOnset(soundTime);
-  else if (isPracticeRunning) matchSoundToExpectedEvent(soundTime, measurement);
-}
-
+let phasingLevelFrames = [];
 async function startMicrophone() {
   try {
     microphoneStream = await navigator.mediaDevices.getUserMedia({
@@ -300,32 +280,9 @@ async function startMicrophone() {
     previousFrequencyData = new Uint8Array(analyser.frequencyBinCount);
 
     microphoneSource.connect(analyser);
-    const microphoneTrack = microphoneStream.getAudioTracks()[0];
-    microphoneTrack.contentHint = "music";
-    phasingAutoGain = microphoneTrack.getSettings?.().autoGainControl === true;
-    if (audioContext.audioWorklet && typeof AudioWorkletNode === "function") {
-      try {
-        await audioContext.audioWorklet.addModule("audio-onset.js");
-        onsetWorklet = new AudioWorkletNode(audioContext, "piano-onset", { channelCount: 1, channelCountMode: "explicit" });
-        const mute = audioContext.createGain();
-        mute.gain.value = 0;
-        microphoneSource.connect(onsetWorklet);
-        onsetWorklet.connect(mute).connect(audioContext.destination);
-        onsetWorklet.port.onmessage = ({ data }) => {
-          const clockOffset = performance.now() - audioContext.currentTime * 1000;
-          onsetAnalyzedThroughMs = data.analyzedThrough * 1000 + clockOffset;
-          for (const onset of data.onsets) handlePianoOnset(onset.time * 1000 + clockOffset, onset);
-          if (isPracticeRunning) updatePracticeDisplay();
-        };
-        configureOnsetDetector();
-      } catch (error) {
-        console.warn("Using microphone analysis fallback:", error);
-        onsetWorklet?.disconnect();
-        onsetWorklet = null;
-      }
-    }
-
-    if (calibration && calibration.detectorEngine !== onsetDetectorEngine()) {
+    phasingAutoGain = microphoneStream.getAudioTracks()[0].getSettings?.().autoGainControl === true;
+    // A calibration made with the reverted detector has a different latency.
+    if (calibration?.detectorEngine && calibration.detectorEngine !== "analyser-v1") {
       calibration = null;
       localStorage.removeItem("pianoRhythmCalibration");
     }
@@ -348,7 +305,7 @@ practiceStatus.textContent =
   "Ready. Use earphones, then start practice.";
 
 showVolume();
-if (!onsetWorklet) fallbackOnsetTimer = setInterval(checkForPianoSound, 8);
+checkForPianoSound();
 if (isPhasingMode) renderPhasingMode();
  } catch (error) {
   console.error(error);
@@ -885,8 +842,6 @@ function startCalibration() {
   } = schedule;
 
 mode = "calibrating";
-minimumGapMs = 75;
-configureOnsetDetector();
 window.hideTempoPreview?.();
 coachConsole.classList.remove("test-mode", "test-results", "play-mode", "play-results", "phasing-mode");
 
@@ -1207,7 +1162,7 @@ function applyCalibration() {
 
   calibration = {
     ...pendingCalibration,
-    detectorEngine: onsetDetectorEngine(),
+    detectorEngine: "analyser-v1",
     savedAt: new Date().toISOString()
   };
 
@@ -1473,7 +1428,6 @@ function advancePlayMode() {
     }
     const beatIntervalMs = 60000 / playState.bpm;
     minimumGapMs = Math.max(18, Math.min(beatIntervalMs / 4 * 0.22, 90));
-    configureOnsetDetector();
     timingWindowMs = Math.max(10, Math.min(beatIntervalMs / 4 * 0.46, 180));
     if (playState.scheduledBeat < 0) {
       playState.countInBeat = playState.scheduledBeat + 5;
@@ -1501,6 +1455,10 @@ function advancePlayMode() {
 
 function checkForPianoSound() {
   const volume = getCurrentVolume();
+  if (isPhasingMode) {
+    phasingLevelFrames.push({ volume, clipped: audioData.some(sample => sample <= 1 || sample >= 254) });
+    if (phasingLevelFrames.length > 3) phasingLevelFrames.shift();
+  }
   const flux = getSpectralFlux();
   const now = performance.now();
 
@@ -1510,11 +1468,13 @@ function checkForPianoSound() {
     fluxHistory.shift();
   }
 
-  const baselineFlux = median(fluxHistory);
+  const averageFlux =
+    fluxHistory.reduce((sum, value) => sum + value, 0) /
+    fluxHistory.length;
 
   dynamicFluxThreshold = Math.max(
     fluxThresholdFloor,
-    baselineFlux * fluxMultiplier
+    averageFlux * fluxMultiplier
   );
 
   const isLocalPeak =
@@ -1524,18 +1484,32 @@ function checkForPianoSound() {
   const isNewOnset =
     isLocalPeak &&
     previousFlux > dynamicFluxThreshold &&
-    pendingPeakVolume > onsetThreshold &&
-    (pendingPeakTime || now) - lastOnsetTime > minimumGapMs;
+    previousFlux > previousPreviousFlux * peakRatio &&
+    volume > onsetThreshold &&
+    now - lastOnsetTime > minimumGapMs;
 
   if (isNewOnset) {
-    handlePianoOnset(pendingPeakTime || now, { levelDb: 20 * Math.log10(Math.max(1e-7, pendingPeakVolume / 128)), clipped: pendingPeakVolume >= 90 });
+    lastOnsetTime = pendingPeakTime || now;
+
+    flashNoteLight(volume);
+
+    if (mode === "calibrating") {
+      matchCalibrationOnset(lastOnsetTime);
+    } else if (isPracticeRunning) {
+      // Capture loudness for PHASING without changing the original onset decision.
+      matchSoundToExpectedEvent(lastOnsetTime, isPhasingMode ? {
+        levelDb: 20 * Math.log10(Math.max(1e-7, Math.max(...phasingLevelFrames.map(frame => frame.volume)) / 128)),
+        clipped: phasingLevelFrames.some(frame => frame.clipped)
+      } : null);
+    }
   }
 
   previousPreviousFlux = previousFlux;
   previousFlux = flux;
   pendingPeakFlux = flux;
   pendingPeakTime = now;
-  pendingPeakVolume = volume;
+
+  requestAnimationFrame(checkForPianoSound);
 }
 function matchCalibrationOnset(soundTime) {
   let nextEvent = expectedEvents.find((event) => {
@@ -1751,7 +1725,6 @@ function startPractice(referenceSession = false) {
   45,
   Math.min(noteIntervalMs * 0.22, 90)
 );
-configureOnsetDetector();
 timingWindowMs = Math.max(
   80,
   Math.min(noteIntervalMs * 0.46, 180)
@@ -1783,7 +1756,7 @@ window.updateTransportLamps?.();
   previousFrequencyData.fill(0);
   fluxHistory = [];
   dynamicFluxThreshold = 0;
-  pendingPeakVolume = 0;
+  phasingLevelFrames = [];
   practiceStartTime = performance.now();
 
   if (isPlayMode) {
@@ -2268,7 +2241,6 @@ function renderPhasingMode() {
   practiceScore.textContent = `TIME ${timing}% · SHAPE ${analysis.score ?? "--"}%`;
   phasingReferenceButton.disabled = !microphoneStream || mode !== "idle" || isPracticeRunning;
   phasingReferenceButton.textContent = analysis.referenceReady ? "RESET LEVEL REFERENCE" : "SET LEVEL REFERENCE";
-  const previousHelp = phasingHelp.textContent;
   phasingHelp.textContent = !microphoneStream ? "Allow microphone, then record an even-touch reference."
     : phasingAutoGain ? "Automatic mic level is active; loudness is a guide, not a reliable grade."
     : phasingReferenceSession ? isPracticeRunning
@@ -2278,14 +2250,15 @@ function renderPhasingMode() {
     : !analysis.referenceReady ? "First set a reference: same scale, even touch, fixed mic position."
       : "Same scale and mic position. Changing TEMPO, RHYTHM or NOTES needs a new reference.";
   drawPhasingChart(analysis);
-  if (previousHelp !== phasingHelp.textContent) window.fitPhonePanel?.();
 }
 
 function drawPhasingChart(analysis) {
   const ctx = timingChartContext;
   const width = timingChart.width / chartResolution, height = timingChart.height / chartResolution;
   ctx.clearRect(0, 0, width, height);
-  const left = 40, right = width - 16, top = 38, bottom = 111;
+  // Reserve physical screen space for the reference controls without shrinking text.
+  const contentHeight = height * (1 - 52 / (timingChart.clientHeight || 178));
+  const left = 40, right = width - 16, top = 26, bottom = contentHeight * 0.48;
   const count = expectedEvents.length || Number(totalNotes.value);
   const x = index => left + index / Math.max(1, count - 1) * (right - left);
   const y = value => bottom - value * (bottom - top);
@@ -2335,16 +2308,16 @@ function drawPhasingChart(analysis) {
     ctx.beginPath(); ctx.arc(x(point.index), y(value), 2.5, 0, Math.PI * 2); ctx.fill();
     previous = { x: x(point.index), y: y(value) };
   }
-  const timingCenter = 158;
+  const timingCenter = contentHeight * 0.8;
   ctx.fillStyle = "#72ff9a";
   ctx.textAlign = "left";
   font(10);
-  ctx.fillText("TIMING", left, 134);
+  ctx.fillText("TIMING", left, contentHeight * 0.62);
   const latest = [...expectedEvents].reverse().find(event => event.result !== null);
   ctx.textAlign = "right";
   const timingText = !latest ? "EARLY / ON / LATE" : latest.result === "Missed" ? "MISSED"
     : `${latest.result.toUpperCase()} ${latest.offsetMs >= 0 ? "+" : ""}${Math.round(latest.offsetMs)} MS`;
-  ctx.fillText(timingText, right, 134);
+  ctx.fillText(timingText, right, contentHeight * 0.62);
   ctx.strokeStyle = "#4b8f5c";
   ctx.setLineDash([2, 4]);
   ctx.beginPath(); ctx.moveTo(left, timingCenter); ctx.lineTo(right, timingCenter); ctx.stroke();
@@ -2352,14 +2325,14 @@ function drawPhasingChart(analysis) {
   ctx.textAlign = "left";
   ctx.fillStyle = "#4b8f5c";
   font(10);
-  ctx.fillText("EARLY", 2, timingCenter - 12);
-  ctx.fillText("LATE", 2, timingCenter + 12);
+  ctx.fillText("EARLY", 2, timingCenter - 10);
+  ctx.fillText("LATE", 2, timingCenter + 10);
   for (let index = 0; index < expectedEvents.length; index++) {
     const event = expectedEvents[index];
     if (!event.result) continue;
     ctx.fillStyle = event.result === "Missed" ? "#f54444" : event.result === "On Beat" ? "#72ff9a" : "#f6c453";
     const offset = event.offsetMs === null ? 0 : event.offsetMs / timingWindowMs;
-    ctx.beginPath(); ctx.arc(x(index), timingCenter + Math.max(-1, Math.min(1, offset)) * 14, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x(index), timingCenter + Math.max(-1, Math.min(1, offset)) * 10, 2.5, 0, Math.PI * 2); ctx.fill();
   }
   ctx.fillStyle = "#72ff9a";
   font(9);
@@ -2368,11 +2341,10 @@ function drawPhasingChart(analysis) {
       : expectedEvents.some(event => event.clipped) ? "DISTORTED · REDUCE INPUT LEVEL"
         : analysis.score === 0 && analysis.range < 3 ? "MORE SOFT / LOUD CONTRAST"
           : analysis.score === null ? "DASHED = TARGET · DOTS = YOU" : `SHAPE ${analysis.score}% · RANGE ${analysis.range.toFixed(1)} DB`;
-  ctx.fillText(footer, left, height - 23);
+  ctx.fillText(footer, left, contentHeight - 6);
 }
 function updatePracticeDisplay() {
-  // Wait until the audio thread's messages have arrived before declaring misses.
-  const now = onsetWorklet ? Math.min(performance.now(), onsetAnalyzedThroughMs) : performance.now();
+  const now = performance.now();
   const toleranceMs = timingWindowMs;
   const calibrationOffsetMs = calibration
     ? calibration.offsetMs
