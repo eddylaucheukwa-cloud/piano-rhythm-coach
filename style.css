@@ -81,7 +81,7 @@ button {
     position: absolute;
     inset: 0 auto 0 0;
     display: flex;
-    width: 300%;
+    width: 400%;
     transform: translate3d(var(--mode-offset, 0%), 0, 0);
     transition: transform 340ms cubic-bezier(.22, .8, .25, 1);
 }
@@ -89,7 +89,7 @@ button {
 .mode-title-track > span {
     display: flex;
     align-items: center;
-    flex: 0 0 33.3333333333%;
+    flex: 0 0 25%;
     padding: 0 10px;
     white-space: nowrap;
 }
@@ -616,6 +616,28 @@ button {
 .play-mode .tempo-knob,
 .play-mode .notes-wheel,
 .play-mode .step-buttons { cursor: default; }
+
+.phasing-tools { display: none; }
+.phasing-mode .phasing-tools {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.phasing-tools button {
+  padding: 7px 8px;
+  border: 1px solid #758274;
+  border-radius: 4px;
+  background: var(--screen);
+  color: var(--green);
+  font: 800 10px "Doto", "Share Tech Mono", monospace;
+  font-variation-settings: "ROND" 100;
+  cursor: pointer;
+}
+.phasing-tools button:disabled { cursor: default; }
+.phasing-tools p { margin: 0; font-size: 10px; line-height: 1.3; color: #535d52; }
+.phasing-mode #practiceScore { font-size: 9px; letter-spacing: 0; }
 
 .title-lcd:focus-visible {
   outline: 3px solid #267d48;

@@ -12,7 +12,7 @@
     <main id="coachConsole" class="console">
         <header id="modeTitle" class="title-lcd" tabindex="0" aria-label="Piano Rhythm Coach. Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode." title="Swipe left: Test mode · Swipe right: Practice mode">
             <div id="modeTitleTrack" class="mode-title-track" aria-hidden="true">
-                <span>PIANO RHYTHM COACH<i class="mode-swipe-hint">←</i></span><span>TEST MODE</span><span class="play-title">PLAY MODE</span>
+                <span>PIANO RHYTHM COACH<i class="mode-swipe-hint">←</i></span><span>TEST MODE</span><span>PHASING MODE</span><span class="play-title">PLAY MODE</span>
             </div>
         </header>
         <section class="monitor-label"><span>MONITOR</span><span id="practiceScore">ACCURACY: --</span><i id="noteLight"
@@ -28,6 +28,10 @@
             <p id="playNext">NEXT 1234</p>
         </div>
         <output id="bpmMonitor" class="bpm-monitor">BPM 060</output>
+        </section>
+        <section class="phasing-tools" aria-label="Scale loudness reference">
+            <button id="phasingReferenceButton" type="button">SET LEVEL REFERENCE</button>
+            <p id="phasingHelp" aria-live="polite">Play the same scale with an even touch first.</p>
         </section>
         <section class="control-row">
             <div class="tempo-zone">

@@ -69,6 +69,7 @@ const coachConsole = document.getElementById("coachConsole");
 const modeTitle = document.getElementById("modeTitle");
 const modeTitleTrack = document.getElementById("modeTitleTrack");
 let isTestMode = false;
+let isPhasingMode = false;
 let isPlayMode = false;
 let secretSwipeCount = 0;
 let playState = null;
@@ -80,54 +81,84 @@ const playFeedback = document.getElementById("playFeedback");
 const playNext = document.getElementById("playNext");
 let testProgressTimer = null;
 let titleSwipe = null;
+const phasingReferenceButton = document.getElementById("phasingReferenceButton");
+const phasingHelp = document.getElementById("phasingHelp");
+let phasingReference = null;
+let phasingReferenceSession = false;
+let phasingAutoGain = false;
+
+phasingReferenceButton.addEventListener("click", () => {
+  if (isPhasingMode && mode === "idle" && !isPracticeRunning) startPractice(true);
+});
+for (const control of [bpmSlider, notesPerBeat, totalNotes]) {
+  control.addEventListener("input", () => {
+    if (isPhasingMode && mode === "idle") renderPhasingMode();
+  });
+}
 
 function setTestMode(enabled) {
   setCoachMode(enabled ? "test" : "practice");
 }
 
 function modeTitleOffset() {
-  return `${-(isPlayMode ? 2 : isTestMode ? 1 : 0) * 100 / 3}%`;
+  return `${-(isPlayMode ? 3 : isPhasingMode ? 2 : isTestMode ? 1 : 0) * 25}%`;
 }
 
 function setCoachMode(nextMode) {
   if (mode !== "idle" || isPracticeRunning) return;
+  const wasPhasingMode = isPhasingMode;
   isTestMode = nextMode === "test";
+  isPhasingMode = nextMode === "phasing";
   isPlayMode = nextMode === "play";
   secretSwipeCount = 0;
   coachConsole.classList.toggle("test-mode", isTestMode);
+  coachConsole.classList.toggle("phasing-mode", isPhasingMode);
   coachConsole.classList.toggle("play-mode", isPlayMode);
   coachConsole.classList.toggle("play-unlocked", isPlayMode);
   coachConsole.classList.remove("test-results", "play-results");
   modeTitle.style.setProperty("--mode-offset", modeTitleOffset());
-  modeTitle.setAttribute("aria-label", (isPlayMode ? "Play mode." : isTestMode ? "Test mode." : "Piano Rhythm Coach.") +
-    (isPlayMode ? " Swipe right or press right arrow to return to test mode."
-      : " Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode."));
-  startPracticeButton.setAttribute("aria-label", isPlayMode ? "Start play mode" : isTestMode ? "Start test" : "Start practice");
+  modeTitle.setAttribute("aria-label", (isPlayMode ? "Play mode." : isPhasingMode ? "Phasing mode." : isTestMode ? "Test mode." : "Piano Rhythm Coach.") +
+    " Swipe left or press left arrow for the next mode; swipe right or press right arrow for the previous mode.");
+  startPracticeButton.setAttribute("aria-label", isPlayMode ? "Start play mode" : isPhasingMode ? "Start phasing practice" : isTestMode ? "Start test" : "Start practice");
   bpmSlider.disabled = isPlayMode;
   notesPerBeat.disabled = isPlayMode;
   totalNotes.disabled = isPlayMode;
+  if (isPhasingMode) {
+    expectedEvents = [];
+    phasingReferenceSession = false;
+  }
   if (isPlayMode) {
     playState = createPlayState();
     expectedEvents = [];
     renderPlayMode();
   }
   window.syncMixer?.();
+  if (isPhasingMode) renderPhasingMode();
+  else {
+    phasingReferenceButton.disabled = false;
+    if (wasPhasingMode && !isPlayMode) drawTimingChart();
+  }
   practiceStatus.textContent = isPlayMode
     ? "Play mode: each four-beat pattern has a two-beat buffer. Every four loops adds 5 BPM."
+    : isPhasingMode ? "Phasing: build from soft to loud, then return to soft. Set a level reference for your scale."
     : isTestMode
     ? "Test mode: 4-beat count-in, then keep the rhythm without clicks."
     : "Practice mode: metronome and live timing chart.";
+  window.fitPhonePanel?.();
 }
 
 function switchModeBySwipe(left) {
   if (mode !== "idle" || isPracticeRunning) return;
   if (!left) {
-    if (isPlayMode) setCoachMode("test");
+    if (isPlayMode) setCoachMode("phasing");
+    else if (isPhasingMode) setCoachMode("test");
     else if (isTestMode) setCoachMode("practice");
-  } else if (isTestMode) {
+  } else if (isPhasingMode) {
     secretSwipeCount++;
     coachConsole.classList.toggle("play-unlocked", secretSwipeCount >= 2);
     if (secretSwipeCount === 3) setCoachMode("play");
+  } else if (isTestMode) {
+    setCoachMode("phasing");
   } else if (!isPlayMode) {
     setCoachMode("test");
   }
@@ -142,7 +173,7 @@ modeTitle.addEventListener("pointerdown", (event) => {
     width: rect.width, position, startedAt: performance.now()
   };
   modeTitle.classList.add("is-swiping");
-  modeTitle.style.setProperty("--mode-offset", `${-position * 100 / 3}%`);
+  modeTitle.style.setProperty("--mode-offset", `${-position * 25}%`);
   modeTitle.setPointerCapture(event.pointerId);
 });
 modeTitle.addEventListener("pointermove", (event) => {
@@ -152,10 +183,10 @@ modeTitle.addEventListener("pointermove", (event) => {
   if (Math.abs(dx) <= Math.abs(dy)) return;
   if (Math.abs(dx) >= 6) modeTitle.classList.add("is-swipe-moving");
   const position = titleSwipe.position - dx / titleSwipe.width;
-  const lastPage = isPlayMode || secretSwipeCount >= 2 ? 2 : 1;
+  const lastPage = isPlayMode || secretSwipeCount >= 2 ? 3 : 2;
   const bounded = Math.max(0, Math.min(lastPage, position));
   const resisted = bounded + (position - bounded) * 0.18;
-  modeTitle.style.setProperty("--mode-offset", `${-resisted * 100 / 3}%`);
+  modeTitle.style.setProperty("--mode-offset", `${-resisted * 25}%`);
 });
 modeTitle.addEventListener("pointerup", (event) => {
   if (!titleSwipe || event.pointerId !== titleSwipe.id) return;
@@ -200,12 +231,12 @@ let timingWindowMs = 220;
 
 const fluxThresholdFloor = 350;
 const fluxMultiplier = 2.2;
-const peakRatio = 1.2;
 const fluxHistorySize = 24;
 
 onsetThresholdSlider.addEventListener("input", () => {
   onsetThreshold = Number(onsetThresholdSlider.value);
   onsetThresholdValue.textContent = onsetThreshold.toFixed(1);
+  configureOnsetDetector();
 });
 
 let mediaRecorder = null;
@@ -221,6 +252,25 @@ let pendingPeakFlux = 0;
 let pendingPeakTime = 0;
 let fluxHistory = [];
 let dynamicFluxThreshold = 0;
+let pendingPeakVolume = 0;
+let onsetWorklet = null;
+let onsetAnalyzedThroughMs = 0;
+let fallbackOnsetTimer = null;
+
+function configureOnsetDetector() {
+  onsetWorklet?.port.postMessage({ sensitivity: onsetThreshold, minimumGapMs });
+}
+
+function onsetDetectorEngine() {
+  return onsetWorklet ? "audio-worklet-v1" : "analyser-v2";
+}
+
+function handlePianoOnset(soundTime, measurement) {
+  lastOnsetTime = soundTime;
+  flashNoteLight(128 * Math.pow(10, measurement.levelDb / 20));
+  if (mode === "calibrating") matchCalibrationOnset(soundTime);
+  else if (isPracticeRunning) matchSoundToExpectedEvent(soundTime, measurement);
+}
 
 async function startMicrophone() {
   try {
@@ -250,6 +300,35 @@ async function startMicrophone() {
     previousFrequencyData = new Uint8Array(analyser.frequencyBinCount);
 
     microphoneSource.connect(analyser);
+    const microphoneTrack = microphoneStream.getAudioTracks()[0];
+    microphoneTrack.contentHint = "music";
+    phasingAutoGain = microphoneTrack.getSettings?.().autoGainControl === true;
+    if (audioContext.audioWorklet && typeof AudioWorkletNode === "function") {
+      try {
+        await audioContext.audioWorklet.addModule("audio-onset.js");
+        onsetWorklet = new AudioWorkletNode(audioContext, "piano-onset", { channelCount: 1, channelCountMode: "explicit" });
+        const mute = audioContext.createGain();
+        mute.gain.value = 0;
+        microphoneSource.connect(onsetWorklet);
+        onsetWorklet.connect(mute).connect(audioContext.destination);
+        onsetWorklet.port.onmessage = ({ data }) => {
+          const clockOffset = performance.now() - audioContext.currentTime * 1000;
+          onsetAnalyzedThroughMs = data.analyzedThrough * 1000 + clockOffset;
+          for (const onset of data.onsets) handlePianoOnset(onset.time * 1000 + clockOffset, onset);
+          if (isPracticeRunning) updatePracticeDisplay();
+        };
+        configureOnsetDetector();
+      } catch (error) {
+        console.warn("Using microphone analysis fallback:", error);
+        onsetWorklet?.disconnect();
+        onsetWorklet = null;
+      }
+    }
+
+    if (calibration && calibration.detectorEngine !== onsetDetectorEngine()) {
+      calibration = null;
+      localStorage.removeItem("pianoRhythmCalibration");
+    }
 
     micButton.disabled = false;
 
@@ -269,7 +348,8 @@ practiceStatus.textContent =
   "Ready. Use earphones, then start practice.";
 
 showVolume();
-checkForPianoSound();
+if (!onsetWorklet) fallbackOnsetTimer = setInterval(checkForPianoSound, 8);
+if (isPhasingMode) renderPhasingMode();
  } catch (error) {
   console.error(error);
 
@@ -805,8 +885,10 @@ function startCalibration() {
   } = schedule;
 
 mode = "calibrating";
+minimumGapMs = 75;
+configureOnsetDetector();
 window.hideTempoPreview?.();
-coachConsole.classList.remove("test-mode", "test-results", "play-mode", "play-results");
+coachConsole.classList.remove("test-mode", "test-results", "play-mode", "play-results", "phasing-mode");
 
 bpmMonitor.style.color = "#72ff9a";
 bpmMonitor.style.textShadow =
@@ -1125,6 +1207,7 @@ function applyCalibration() {
 
   calibration = {
     ...pendingCalibration,
+    detectorEngine: onsetDetectorEngine(),
     savedAt: new Date().toISOString()
   };
 
@@ -1135,7 +1218,7 @@ function applyCalibration() {
 
   pendingCalibration = null;
   mode = "idle";
-  setCoachMode(isPlayMode ? "play" : isTestMode ? "test" : "practice");
+  setCoachMode(isPlayMode ? "play" : isPhasingMode ? "phasing" : isTestMode ? "test" : "practice");
 
   practiceStatus.textContent =
     `Calibration applied: ` +
@@ -1390,6 +1473,7 @@ function advancePlayMode() {
     }
     const beatIntervalMs = 60000 / playState.bpm;
     minimumGapMs = Math.max(18, Math.min(beatIntervalMs / 4 * 0.22, 90));
+    configureOnsetDetector();
     timingWindowMs = Math.max(10, Math.min(beatIntervalMs / 4 * 0.46, 180));
     if (playState.scheduledBeat < 0) {
       playState.countInBeat = playState.scheduledBeat + 5;
@@ -1426,13 +1510,11 @@ function checkForPianoSound() {
     fluxHistory.shift();
   }
 
-  const averageFlux =
-    fluxHistory.reduce((sum, value) => sum + value, 0) /
-    fluxHistory.length;
+  const baselineFlux = median(fluxHistory);
 
   dynamicFluxThreshold = Math.max(
     fluxThresholdFloor,
-    averageFlux * fluxMultiplier
+    baselineFlux * fluxMultiplier
   );
 
   const isLocalPeak =
@@ -1442,28 +1524,18 @@ function checkForPianoSound() {
   const isNewOnset =
     isLocalPeak &&
     previousFlux > dynamicFluxThreshold &&
-    previousFlux > previousPreviousFlux * peakRatio &&
-    volume > onsetThreshold &&
-    now - lastOnsetTime > minimumGapMs;
+    pendingPeakVolume > onsetThreshold &&
+    (pendingPeakTime || now) - lastOnsetTime > minimumGapMs;
 
   if (isNewOnset) {
-    lastOnsetTime = pendingPeakTime || now;
-
-    flashNoteLight(volume);
-
-    if (mode === "calibrating") {
-  matchCalibrationOnset(lastOnsetTime);
-} else if (isPracticeRunning) {
-  matchSoundToExpectedEvent(lastOnsetTime);
-}
+    handlePianoOnset(pendingPeakTime || now, { levelDb: 20 * Math.log10(Math.max(1e-7, pendingPeakVolume / 128)), clipped: pendingPeakVolume >= 90 });
   }
 
   previousPreviousFlux = previousFlux;
   previousFlux = flux;
   pendingPeakFlux = flux;
   pendingPeakTime = now;
-
-  requestAnimationFrame(checkForPianoSound);
+  pendingPeakVolume = volume;
 }
 function matchCalibrationOnset(soundTime) {
   let nextEvent = expectedEvents.find((event) => {
@@ -1525,7 +1597,7 @@ function matchCalibrationOnset(soundTime) {
     `${rawOffsetMs.toFixed(0)} ms`
   );
 }
-function matchSoundToExpectedEvent(soundTime) {
+function matchSoundToExpectedEvent(soundTime, measurement = null) {
   const calibrationOffsetMs = calibration
     ? calibration.offsetMs
     : 0;
@@ -1586,6 +1658,10 @@ function matchSoundToExpectedEvent(soundTime) {
   nextEvent.rawOffsetMs = rawDifference;
   nextEvent.correctedOffsetMs = correctedDifference;
   nextEvent.offsetMs = correctedDifference;
+  if (measurement && Number.isFinite(measurement.levelDb)) {
+    nextEvent.levelDb = measurement.levelDb;
+    nextEvent.clipped = measurement.clipped;
+  }
 
   const onBeatRangeMs = Math.min(
     55,
@@ -1648,7 +1724,7 @@ function stopPracticeMetronome() {
   playbackButton.classList.remove("beat-flash");
 }
 
-function startPractice() {
+function startPractice(referenceSession = false) {
   if (isPracticeRunning || mode !== "idle") {
     return;
   }
@@ -1657,6 +1733,13 @@ function startPractice() {
     practiceStatus.textContent = "Please connect microphone first.";
     return;
   }
+
+  if (isPhasingMode && Number(totalNotes.value) < 5) {
+    phasingHelp.textContent = "Set NOTES to at least 5 for a soft–loud–soft phrase.";
+    return;
+  }
+  phasingReferenceSession = isPhasingMode && referenceSession;
+  if (phasingReferenceSession) phasingReference = null;
 
   if (isPlayMode) playState = createPlayState();
   const bpm = isPlayMode ? playState.bpm : Number(bpmSlider.value);
@@ -1668,6 +1751,7 @@ function startPractice() {
   45,
   Math.min(noteIntervalMs * 0.22, 90)
 );
+configureOnsetDetector();
 timingWindowMs = Math.max(
   80,
   Math.min(noteIntervalMs * 0.46, 180)
@@ -1699,6 +1783,7 @@ window.updateTransportLamps?.();
   previousFrequencyData.fill(0);
   fluxHistory = [];
   dynamicFluxThreshold = 0;
+  pendingPeakVolume = 0;
   practiceStartTime = performance.now();
 
   if (isPlayMode) {
@@ -1712,7 +1797,7 @@ window.updateTransportLamps?.();
 startRecording();
 if (isPlayMode) startPlayMode();
 else startPracticeMetronome();
-if (isTestMode) {
+if (isTestMode || isPhasingMode) {
   testProgressTimer = setInterval(updatePracticeDisplay, 25);
 }
 
@@ -1729,6 +1814,7 @@ if (isTestMode) {
     `4-beat count-in, then play ${totalNotes.value} events at ` +
     `${bpm} BPM (${subdivision} notes per beat).` +
     (isTestMode ? " Keep the rhythm without clicks until the test ends." : "");
+  if (isPhasingMode) renderPhasingMode();
 
 }
 
@@ -1745,6 +1831,7 @@ testProgressTimer = null;
 stopPracticeMetronome();
 stopRecording();
   mode = "idle";
+  if (isPhasingMode && phasingReferenceSession) savePhasingReference();
 coachConsole.classList.toggle("test-results", isTestMode);
 coachConsole.classList.toggle("play-results", isPlayMode);
 /* Transport icon state: practice stopped */
@@ -1804,8 +1891,13 @@ const calibrationOffsetMs = calibration
   bpmSlider.disabled = isPlayMode;
   notesPerBeat.disabled = isPlayMode;
   totalNotes.disabled = isPlayMode;
+  if (isPhasingMode) renderPhasingMode();
 }
 function drawTimingChart() {
+  if (isPhasingMode) {
+    renderPhasingMode();
+    return;
+  }
   if ((isTestMode || isPlayMode) && isPracticeRunning) return;
   const canvas = timingChart;
   const ctx = timingChartContext;
@@ -2118,8 +2210,169 @@ function drawTimingChart() {
   ctx.font = '800 10px "Doto", "Share Tech Mono", monospace';
   ctx.fillText(footerText, width / 2, height - 24);
 }
+function phasingSettingsKey() {
+  return `${bpmSlider.value}/${notesPerBeat.value}/${totalNotes.value}`;
+}
+
+function phasingTarget(index, count) {
+  return count > 1 ? 1 - Math.abs(2 * index / (count - 1) - 1) : 0;
+}
+
+function savePhasingReference() {
+  const valid = !phasingAutoGain && expectedEvents.length >= 5 &&
+    expectedEvents.every(event => Number.isFinite(event.levelDb) && !event.clipped);
+  if (valid) {
+    phasingReference = { key: phasingSettingsKey(), levels: expectedEvents.map(event => event.levelDb) };
+    practiceStatus.textContent = "Level reference saved. Keep the same scale, tempo, touch reference and microphone position.";
+  } else {
+    practiceStatus.textContent = "Reference incomplete or distorted. Keep an even touch and record every note again.";
+  }
+}
+
+function getPhasingAnalysis() {
+  const referenceReady = phasingReference?.key === phasingSettingsKey() && !phasingAutoGain;
+  const points = expectedEvents.map((event, index) => ({
+    index,
+    target: phasingTarget(index, expectedEvents.length),
+    level: Number.isFinite(event.levelDb) && !event.clipped
+      ? event.levelDb - (referenceReady && !phasingReferenceSession ? phasingReference.levels[index] : 0)
+      : null
+  }));
+  const measured = points.filter(point => point.level !== null);
+  const low = measured.length ? Math.min(...measured.map(point => point.level)) : 0;
+  const high = measured.length ? Math.max(...measured.map(point => point.level)) : 0;
+  const range = high - low;
+  let score = null;
+  if (referenceReady && !phasingReferenceSession && !expectedEvents.some(event => event.clipped) && measured.length >= 5 && measured.length >= expectedEvents.length * 0.8) {
+    const meanTarget = measured.reduce((sum, point) => sum + point.target, 0) / measured.length;
+    const meanLevel = measured.reduce((sum, point) => sum + point.level, 0) / measured.length;
+    let covariance = 0, targetVariance = 0, levelVariance = 0;
+    for (const point of measured) {
+      covariance += (point.target - meanTarget) * (point.level - meanLevel);
+      targetVariance += (point.target - meanTarget) ** 2;
+      levelVariance += (point.level - meanLevel) ** 2;
+    }
+    const correlation = targetVariance * levelVariance > 0
+      ? covariance / Math.sqrt(targetVariance * levelVariance) : 0;
+    score = range >= 3 ? Math.round(Math.max(0, Math.min(1, correlation)) * 100) : 0;
+  }
+  return { referenceReady, points, measured, low, range, score };
+}
+
+function renderPhasingMode() {
+  if (!isPhasingMode || mode === "calibrating" || mode === "calibration-result") return;
+  const analysis = getPhasingAnalysis();
+  const due = expectedEvents.filter(event => event.result !== null);
+  const onBeat = due.filter(event => event.result === "On Beat").length;
+  const timing = due.length ? Math.round(onBeat / due.length * 100) : "--";
+  practiceScore.textContent = `TIME ${timing}% · SHAPE ${analysis.score ?? "--"}%`;
+  phasingReferenceButton.disabled = !microphoneStream || mode !== "idle" || isPracticeRunning;
+  phasingReferenceButton.textContent = analysis.referenceReady ? "RESET LEVEL REFERENCE" : "SET LEVEL REFERENCE";
+  const previousHelp = phasingHelp.textContent;
+  phasingHelp.textContent = !microphoneStream ? "Allow microphone, then record an even-touch reference."
+    : phasingAutoGain ? "Automatic mic level is active; loudness is a guide, not a reliable grade."
+    : phasingReferenceSession ? isPracticeRunning
+      ? "Play your whole scale with an even touch. Keep the mic still."
+      : analysis.referenceReady ? "Reference saved. Press START: soft → loud → soft, using the same scale."
+        : "Reference incomplete. Record all notes again with an even touch."
+    : !analysis.referenceReady ? "First set a reference: same scale, even touch, fixed mic position."
+      : "Same scale and mic position. Changing TEMPO, RHYTHM or NOTES needs a new reference.";
+  drawPhasingChart(analysis);
+  if (previousHelp !== phasingHelp.textContent) window.fitPhonePanel?.();
+}
+
+function drawPhasingChart(analysis) {
+  const ctx = timingChartContext;
+  const width = timingChart.width / chartResolution, height = timingChart.height / chartResolution;
+  ctx.clearRect(0, 0, width, height);
+  const left = 40, right = width - 16, top = 38, bottom = 111;
+  const count = expectedEvents.length || Number(totalNotes.value);
+  const x = index => left + index / Math.max(1, count - 1) * (right - left);
+  const y = value => bottom - value * (bottom - top);
+  const font = size => { ctx.font = `800 ${size}px "Doto", "Share Tech Mono", monospace`; };
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#72ff9a";
+  font(11);
+  ctx.fillText("DYNAMICS", left, 12);
+  const next = expectedEvents.find(event => event.result === null);
+  const countInEnd = expectedEvents[0]?.time ?? Infinity;
+  const stage = phasingReferenceSession ? "EVEN TOUCH"
+    : isPracticeRunning && performance.now() < countInEnd ? "4-BEAT COUNT-IN"
+      : next ? `${next.number}/${count} · ${next.number <= (count + 1) / 2 ? "BUILD" : "RELEASE"}`
+        : expectedEvents.length ? "PHRASE REVIEW" : "SOFT > LOUD > SOFT";
+  ctx.textAlign = "right";
+  font(10);
+  ctx.fillText(stage, right, 12);
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#4b8f5c";
+  font(10);
+  ctx.fillText("LOUD", 2, top);
+  ctx.fillText("SOFT", 2, bottom);
+  ctx.strokeStyle = "#4b8f5c";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 4]);
+  ctx.beginPath();
+  for (let index = 0; index < count; index++) {
+    const target = phasingReferenceSession ? 0.5 : phasingTarget(index, count);
+    if (index === 0) ctx.moveTo(x(index), y(target));
+    else ctx.lineTo(x(index), y(target));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  let previous = null;
+  for (const point of analysis.points) {
+    if (point.level === null) { previous = null; continue; }
+    const value = analysis.range > 0.01 ? (point.level - analysis.low) / analysis.range : 0.5;
+    const difference = Math.abs(value - point.target);
+    const color = analysis.score === null || phasingReferenceSession ? "#a4c7aa"
+      : difference > 0.3 ? "#f54444" : difference > 0.15 ? "#f6c453" : "#72ff9a";
+    if (previous) {
+      ctx.strokeStyle = color;
+      ctx.beginPath(); ctx.moveTo(previous.x, previous.y); ctx.lineTo(x(point.index), y(value)); ctx.stroke();
+    }
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x(point.index), y(value), 2.5, 0, Math.PI * 2); ctx.fill();
+    previous = { x: x(point.index), y: y(value) };
+  }
+  const timingCenter = 158;
+  ctx.fillStyle = "#72ff9a";
+  ctx.textAlign = "left";
+  font(10);
+  ctx.fillText("TIMING", left, 134);
+  const latest = [...expectedEvents].reverse().find(event => event.result !== null);
+  ctx.textAlign = "right";
+  const timingText = !latest ? "EARLY / ON / LATE" : latest.result === "Missed" ? "MISSED"
+    : `${latest.result.toUpperCase()} ${latest.offsetMs >= 0 ? "+" : ""}${Math.round(latest.offsetMs)} MS`;
+  ctx.fillText(timingText, right, 134);
+  ctx.strokeStyle = "#4b8f5c";
+  ctx.setLineDash([2, 4]);
+  ctx.beginPath(); ctx.moveTo(left, timingCenter); ctx.lineTo(right, timingCenter); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#4b8f5c";
+  font(10);
+  ctx.fillText("EARLY", 2, timingCenter - 12);
+  ctx.fillText("LATE", 2, timingCenter + 12);
+  for (let index = 0; index < expectedEvents.length; index++) {
+    const event = expectedEvents[index];
+    if (!event.result) continue;
+    ctx.fillStyle = event.result === "Missed" ? "#f54444" : event.result === "On Beat" ? "#72ff9a" : "#f6c453";
+    const offset = event.offsetMs === null ? 0 : event.offsetMs / timingWindowMs;
+    ctx.beginPath(); ctx.arc(x(index), timingCenter + Math.max(-1, Math.min(1, offset)) * 14, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = "#72ff9a";
+  font(9);
+  const footer = phasingReferenceSession ? analysis.referenceReady && !isPracticeRunning ? "REFERENCE SAVED · PRESS START" : "REFERENCE · KEEP AN EVEN TOUCH"
+    : !analysis.referenceReady ? "MIC LEVEL · REFERENCE NEEDED"
+      : expectedEvents.some(event => event.clipped) ? "DISTORTED · REDUCE INPUT LEVEL"
+        : analysis.score === 0 && analysis.range < 3 ? "MORE SOFT / LOUD CONTRAST"
+          : analysis.score === null ? "DASHED = TARGET · DOTS = YOU" : `SHAPE ${analysis.score}% · RANGE ${analysis.range.toFixed(1)} DB`;
+  ctx.fillText(footer, left, height - 23);
+}
 function updatePracticeDisplay() {
-  const now = performance.now();
+  // Wait until the audio thread's messages have arrived before declaring misses.
+  const now = onsetWorklet ? Math.min(performance.now(), onsetAnalyzedThroughMs) : performance.now();
   const toleranceMs = timingWindowMs;
   const calibrationOffsetMs = calibration
     ? calibration.offsetMs
@@ -2163,6 +2416,12 @@ function updatePracticeDisplay() {
     playState.detectedNotes = matchedEvents.length;
     playState.latestEvent = dueEvents[dueEvents.length - 1] || null;
     renderPlayMode();
+    return;
+  }
+
+  if (isPhasingMode) {
+    renderPhasingMode();
+    if (isPracticeRunning && expectedEvents.length > 0 && dueEvents.length === expectedEvents.length) stopPractice();
     return;
   }
 

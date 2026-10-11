@@ -33,8 +33,8 @@ function loadApp(calibration = null) {
         setPointerCapture() {},
         setAttribute(name, value) { this[name] = value; },
         getBoundingClientRect() {
-          const offset = id === 'modeTitleTrack' ? parseFloat(element('modeTitle').style['--mode-offset'] || '0') * 12 : 0;
-          return { left: offset, width: id === 'modeTitleTrack' ? 1200 : 400 };
+          const offset = id === 'modeTitleTrack' ? parseFloat(element('modeTitle').style['--mode-offset'] || '0') * 16 : 0;
+          return { left: offset, width: id === 'modeTitleTrack' ? 1600 : 400 };
         },
         getContext: () => canvasContext,
         pause() {}, load() {}, removeAttribute(name) { this[name] = ''; },
@@ -189,7 +189,7 @@ test('title follows dragging, returns after a short slow swipe, and accepts a qu
   const pointer = (x) => ({ isPrimary: true, button: 0, pointerId: 1, clientX: x, clientY: 20 });
   title.dispatch('pointerdown', pointer(200));
   title.dispatch('pointermove', pointer(150));
-  assert.equal(parseFloat(title.style['--mode-offset']), -100 / 24);
+  assert.equal(parseFloat(title.style['--mode-offset']), -100 / 32);
   assert.equal(title.classList.contains('is-swiping'), true);
   app.context.performance.now = () => 1400;
   title.dispatch('pointerup', pointer(150));
@@ -201,27 +201,29 @@ test('title follows dragging, returns after a short slow swipe, and accepts a qu
   app.context.performance.now = () => 1450;
   title.dispatch('pointerup', pointer(160));
   assert.equal(vm.runInContext('isTestMode', app.context), true);
-  assert.equal(title.style['--mode-offset'], `${-100 / 3}%`);
+  assert.equal(title.style['--mode-offset'], '-25%');
   title.dispatch('pointerdown', pointer(200));
   title.dispatch('pointermove', pointer(260));
   title.dispatch('pointercancel', {});
-  assert.equal(title.style['--mode-offset'], `${-100 / 3}%`);
+  assert.equal(title.style['--mode-offset'], '-25%');
   assert.equal(title.classList.contains('is-swiping'), false);
 });
 
-test('outward swipes preserve completed results and running sessions cannot start a drag', () => {
+test('outward phasing swipes preserve results and running sessions cannot start a drag', () => {
   const app = loadApp();
-  startTest(app);
+  vm.runInContext('microphoneStream={};previousFrequencyData=new Uint8Array(4);totalNotes.value="5";setCoachMode("phasing")', app.context);
+  app.element('startPracticeButton').click();
   app.element('stopPracticeButton').click();
   const title = app.element('modeTitle');
   const pointer = (x) => ({ isPrimary: true, button: 0, pointerId: 1, clientX: x, clientY: 20 });
   title.dispatch('pointerdown', pointer(200));
   title.dispatch('pointermove', pointer(100));
-  assert.ok(parseFloat(title.style['--mode-offset']) > -42);
-  assert.ok(parseFloat(title.style['--mode-offset']) < -100 / 3);
+  assert.ok(parseFloat(title.style['--mode-offset']) > -55);
+  assert.ok(parseFloat(title.style['--mode-offset']) < -50);
   title.dispatch('pointerup', pointer(100));
-  assert.equal(app.element('coachConsole').classList.contains('test-results'), true);
-  assert.equal(title.style['--mode-offset'], `${-100 / 3}%`);
+  assert.equal(vm.runInContext('isPhasingMode', app.context), true);
+  assert.equal(vm.runInContext('expectedEvents.length', app.context), 5);
+  assert.equal(title.style['--mode-offset'], '-50%');
   app.element('startPracticeButton').click();
   title.dispatch('pointerdown', pointer(200));
   assert.equal(title.classList.contains('is-swiping'), false);
@@ -305,9 +307,9 @@ function startPlay(app) {
   app.element('startPracticeButton').click();
 }
 
-test('play mode unlocks on the third extra left swipe from test mode and exits to test mode', () => {
+test('play mode unlocks on the third extra left swipe from phasing mode and exits through test mode', () => {
   const app = loadApp();
-  vm.runInContext('setTestMode(true)', app.context);
+  vm.runInContext('setCoachMode("phasing")', app.context);
   const title = app.element('modeTitle');
   const swipe = (left) => {
     title.dispatch('pointerdown', { isPrimary:true, button:0, pointerId:1, clientX:200, clientY:20 });
@@ -320,6 +322,8 @@ test('play mode unlocks on the third extra left swipe from test mode and exits t
   assert.equal(app.element('coachConsole').classList.contains('play-mode'), true);
   swipe(false);
   assert.equal(vm.runInContext('isPlayMode', app.context), false);
+  assert.equal(vm.runInContext('isPhasingMode', app.context), true);
+  swipe(false);
   assert.equal(vm.runInContext('isTestMode', app.context), true);
   swipe(false);
   assert.equal(vm.runInContext('isTestMode', app.context), false);
@@ -496,4 +500,117 @@ test('both buffer beats preview the next pattern before its playing loop starts'
   assert.equal(vm.runInContext('playState.pattern.join("")', app.context), '1111');
   assert.equal(app.element('playBeat1').classList.contains('active'), true);
   assert.equal(app.element('playBeat1').classList.contains('timing-correct'), false);
+});
+
+function startPhasing(app, reference = false) {
+  vm.runInContext('microphoneStream={};previousFrequencyData=new Uint8Array(4);bpmSlider.value="120";notesPerBeat.value="1";totalNotes.value="5";setCoachMode("phasing")', app.context);
+  app.element(reference ? 'phasingReferenceButton' : 'startPracticeButton').click();
+}
+
+function playLevels(app, levels, offsets = [], clipped = false) {
+  const times = vm.runInContext('expectedEvents.map(event => event.time)', app.context);
+  levels.forEach((levelDb, index) => {
+    const time = times[index] + (offsets[index] || 0);
+    app.context.performance.now = () => time;
+    vm.runInContext(`matchSoundToExpectedEvent(${time}, {levelDb:${levelDb},clipped:${clipped}})`, app.context);
+  });
+}
+
+test('normal, test, phasing and hidden play modes follow the new swipe order', () => {
+  const app = loadApp();
+  vm.runInContext('switchModeBySwipe(true);switchModeBySwipe(true)', app.context);
+  assert.equal(vm.runInContext('isPhasingMode && !isTestMode && !isPlayMode', app.context), true);
+  assert.equal(app.element('modeTitle').style['--mode-offset'], '-50%');
+  vm.runInContext('switchModeBySwipe(false)', app.context);
+  assert.equal(vm.runInContext('isTestMode', app.context), true);
+  assert.equal(app.element('modeTitle').style['--mode-offset'], '-25%');
+});
+
+test('phasing reference compensates unequal per-key microphone levels and separately grades timing', () => {
+  const app = loadApp();
+  const reference = [-45, -43, -40, -43, -46];
+  startPhasing(app, true);
+  playLevels(app, reference);
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), false);
+  assert.equal(vm.runInContext('mediaRecorder.state', app.context), 'inactive');
+  assert.equal(vm.runInContext('phasingReference.levels.length', app.context), 5);
+  assert.match(app.element('phasingHelp').textContent, /Reference saved/);
+  app.element('startPracticeButton').click();
+  playLevels(app, reference.map((value, index) => value + [0, 4, 8, 4, 0][index]), [-70, 70]);
+  assert.equal(vm.runInContext('getPhasingAnalysis().score', app.context), 100);
+  assert.equal(app.element('practiceScore').textContent, 'TIME 60% · SHAPE 100%');
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), false);
+  assert.equal(app.intervals.size, 0);
+});
+
+test('flat and inverted dynamics do not earn a good phasing score', () => {
+  const app = loadApp();
+  startPhasing(app, true); playLevels(app, [-40, -40, -40, -40, -40]);
+  app.element('startPracticeButton').click(); playLevels(app, [-40, -40, -40, -40, -40]);
+  assert.equal(vm.runInContext('getPhasingAnalysis().score', app.context), 0);
+  app.element('startPracticeButton').click(); playLevels(app, [-32, -36, -40, -36, -32]);
+  assert.equal(vm.runInContext('getPhasingAnalysis().score', app.context), 0);
+});
+
+test('phasing without a reference or after settings changes shows loudness without a shape grade', () => {
+  const app = loadApp();
+  startPhasing(app); playLevels(app, [-40, -36, -32, -36, -40]);
+  assert.equal(vm.runInContext('getPhasingAnalysis().score', app.context), null);
+  assert.match(app.element('phasingHelp').textContent, /reference/);
+  app.element('phasingReferenceButton').click(); playLevels(app, [-40, -40, -40, -40, -40]);
+  vm.runInContext('bpmSlider.value="130"', app.context);
+  assert.equal(vm.runInContext('getPhasingAnalysis().referenceReady', app.context), false);
+});
+
+test('missing phasing notes finish automatically and incomplete references are rejected', () => {
+  const app = loadApp();
+  startPhasing(app, true);
+  app.context.performance.now = () => 6000;
+  vm.runInContext('updatePracticeDisplay()', app.context);
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), false);
+  assert.equal(vm.runInContext('phasingReference', app.context), null);
+  assert.match(app.element('phasingHelp').textContent, /incomplete/);
+  assert.equal(app.intervals.size, 0);
+});
+
+test('distorted or auto-levelled input cannot create a trustworthy loudness reference', () => {
+  const app = loadApp();
+  startPhasing(app, true); playLevels(app, [-3, -3, -3, -3, -3], [], true);
+  assert.equal(vm.runInContext('phasingReference', app.context), null);
+  vm.runInContext('phasingAutoGain=true', app.context);
+  app.element('phasingReferenceButton').click(); playLevels(app, [-40, -40, -40, -40, -40]);
+  assert.equal(vm.runInContext('phasingReference', app.context), null);
+  assert.match(app.element('phasingHelp').textContent, /Automatic mic level/);
+});
+
+test('phasing requires enough notes and latency calibration restores its two-graph display', () => {
+  const app = loadApp();
+  vm.runInContext('microphoneStream={};previousFrequencyData=new Uint8Array(4);setCoachMode("phasing")', app.context);
+  app.element('startPracticeButton').click();
+  assert.equal(vm.runInContext('isPracticeRunning', app.context), false);
+  assert.match(app.element('phasingHelp').textContent, /at least 5/);
+  vm.runInContext('mode="calibration-result";pendingCalibration={offsetMs:100};applyCalibration()', app.context);
+  assert.equal(vm.runInContext('isPhasingMode', app.context), true);
+  assert.equal(app.element('coachConsole').classList.contains('phasing-mode'), true);
+});
+
+test('fallback uses the actual peak frame volume even if the following frame is quiet', () => {
+  const app = loadApp(); startTest(app);
+  vm.runInContext('var sampleIndex=0;getCurrentVolume=()=>[0,20,1][sampleIndex];getSpectralFlux=()=>[0,1000,0][sampleIndex++]', app.context);
+  for (const time of [2992, 3000, 3008]) {
+    app.context.performance.now = () => time;
+    vm.runInContext('checkForPianoSound()', app.context);
+  }
+  assert.equal(vm.runInContext('expectedEvents[0].detectedTime', app.context), 3000);
+  assert.equal(vm.runInContext('expectedEvents[0].result', app.context), 'On Beat');
+});
+
+test('queued audio-thread messages are processed before missed-note deadlines advance', () => {
+  const app = loadApp(); startTest(app);
+  vm.runInContext('onsetWorklet={port:{postMessage(){}}};onsetAnalyzedThroughMs=2999', app.context);
+  app.context.performance.now = () => 3300;
+  vm.runInContext('updatePracticeDisplay()', app.context);
+  assert.equal(vm.runInContext('expectedEvents[0].result', app.context), null);
+  vm.runInContext('handlePianoOnset(3000,{levelDb:-40,clipped:false});onsetAnalyzedThroughMs=3300;updatePracticeDisplay()', app.context);
+  assert.equal(vm.runInContext('expectedEvents[0].result', app.context), 'On Beat');
 });

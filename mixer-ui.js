@@ -23,7 +23,7 @@ function hideTempoPreview() {
 
 function showTempoPreview() {
   hideTempoPreview();
-  if (mode !== "idle" || isTestMode || isPlayMode || bpmSlider.disabled) return;
+  if (mode !== "idle" || isTestMode || isPhasingMode || isPlayMode || bpmSlider.disabled) return;
   coachConsole.classList.add("tempo-adjusting");
   if (!tempoDragActive) tempoPreviewTimer = setTimeout(hideTempoPreview, 800);
 }
@@ -35,7 +35,7 @@ function animateNumber(element, direction) {
 }
 
 function syncMixer() {
-  if (mode !== "idle" || isTestMode || isPlayMode || bpmSlider.disabled) hideTempoPreview();
+  if (mode !== "idle" || isTestMode || isPhasingMode || isPlayMode || bpmSlider.disabled) hideTempoPreview();
   const bpm = mode === "calibrating" || mode === "calibration-result"
     ? CALIBRATION_BPM : isPlayMode ? playState.bpm : Number(bpmSlider.value);
   const ratio = Math.max(0, Math.min(1, (bpm - MIN) / (MAX - MIN)));
