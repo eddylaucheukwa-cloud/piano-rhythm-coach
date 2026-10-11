@@ -667,3 +667,118 @@ test('phasing reuses the latency button and restores its original action when le
   app.element('micButton').click();
   assert.equal(vm.runInContext('mode', app.context), 'calibrating');
 });
+
+function preparePartialReference(app, count, missing) {
+  vm.runInContext(`microphoneStream={};previousFrequencyData=new Uint8Array(4);bpmSlider.value="120";notesPerBeat.value="1";totalNotes.value="${count}";setCoachMode("phasing")`, app.context);
+  app.element('micButton').click();
+  vm.runInContext(`expectedEvents.forEach((event,index)=>{event.result=${JSON.stringify(missing)}.includes(index)?"Missed":"On Beat";if(event.result!=="Missed"){event.detectedTime=event.time;event.levelDb=-40-index%3;event.clipped=false;event.offsetMs=0;}});stopPractice()`, app.context);
+}
+
+test('partial references accept 70 percent valid notes and keep gaps null at their original positions', () => {
+  const app = loadApp(); preparePartialReference(app, 10, [1,5,8]);
+  assert.equal(vm.runInContext('getPhasingAnalysis().referenceReady', app.context), true);
+  assert.equal(vm.runInContext('phasingReference.levels.filter(Number.isFinite).length', app.context), 7);
+  assert.equal(vm.runInContext('phasingReference.levels[1]', app.context), null);
+  assert.match(app.element('phasingHelp').textContent, /7\/10/);
+  assert.match(app.element('phasingHelp').textContent, /skipped/);
+  app.element('startPracticeButton').click();
+  vm.runInContext('expectedEvents.forEach((event,index)=>{event.result="On Beat";event.detectedTime=event.time;event.offsetMs=0;event.levelDb=-40-index%3+8*phasingTarget(index,10);event.clipped=false;});stopPractice()', app.context);
+  assert.equal(vm.runInContext('getPhasingAnalysis().score', app.context), 100);
+  assert.equal(vm.runInContext('getPhasingAnalysis().points[1].level', app.context), null);
+  assert.equal(vm.runInContext('getPhasingAnalysis().measured.length', app.context), 7);
+});
+
+test('partial reference and practice misses can differ while matched levels still grade the whole phrase', () => {
+  const app = loadApp(); preparePartialReference(app, 10, [1,5,8]);
+  app.element('startPracticeButton').click();
+  vm.runInContext('expectedEvents.forEach((event,index)=>{event.result=[1,3,8].includes(index)?"Missed":"On Beat";if(event.result!=="Missed"){event.detectedTime=event.time;event.offsetMs=0;event.levelDb=-40-index%3+8*phasingTarget(index,10);event.clipped=false;}});stopPractice()', app.context);
+  assert.equal(vm.runInContext('getPhasingAnalysis().score', app.context), 100);
+  assert.equal(vm.runInContext('getPhasingAnalysis().measured.length', app.context), 6);
+  assert.match(app.element('practiceScore').textContent, /TIME 70%/);
+});
+
+test('references reject sparse coverage, unfinished runs and absence of a phrase section', () => {
+  for (const missing of [[0,1,2,3], [7,8,9]]) {
+    const app = loadApp(); preparePartialReference(app, 10, missing);
+    assert.equal(vm.runInContext('phasingReference', app.context), null);
+  }
+  const app = loadApp(); preparePartialReference(app, 10, [1]);
+  app.element('micButton').click();
+  vm.runInContext('expectedEvents.slice(0,9).forEach(event=>{event.result="On Beat";event.levelDb=-40;event.detectedTime=event.time;});stopPractice()', app.context);
+  assert.equal(vm.runInContext('phasingReference', app.context), null);
+});
+
+test('reports distinguish timing accuracy from capture rate, retain the reference attempt and explain exclusions', () => {
+  const app = loadApp(); preparePartialReference(app, 10, [1,5,8]);
+  let report = vm.runInContext('lastPhasingTestReport', app.context);
+  assert.equal(report.summary.detectedNotes, 7);
+  assert.equal(report.summary.missedNotes, 3);
+  assert.equal(report.reference.validNotes, 7);
+  assert.equal(report.notes[1].exclusionReason, 'missed');
+  app.element('startPracticeButton').click();
+  vm.runInContext('expectedEvents.forEach((event,index)=>{event.result="Early";event.offsetMs=-70;event.detectedTime=event.time-70;event.levelDb=-40-index%3+8*phasingTarget(index,10);});stopPractice()', app.context);
+  report = vm.runInContext('lastPhasingTestReport', app.context);
+  assert.equal(report.summary.detectedNotes, 10);
+  assert.equal(report.summary.timingPercent, 0);
+  assert.equal(report.summary.shapePercent, 100);
+  assert.equal(report.notes[1].exclusionReason, 'no-reference');
+  assert.equal(report.referenceAttempt.summary.detectedNotes, 7);
+  vm.runInContext('bpmSlider.value="170"', app.context);
+  assert.equal(report.settings.bpm, 120);
+});
+
+test('EXPORT TEST downloads a readable text report with full JSON and works after an incomplete reference', async () => {
+  const app = loadApp(); preparePartialReference(app, 10, [0,1,2,3,4]);
+  let blob;
+  app.context.URL.createObjectURL = value => { blob=value; return 'blob:report'; };
+  app.context.URL.revokeObjectURL = () => {};
+  app.context.document.body = { appendChild() {} };
+  app.element('created').remove = () => {};
+  assert.equal(app.element('exportTestButton').disabled, false);
+  app.element('exportTestButton').click();
+  const contents = await blob.text();
+  assert.match(contents, /5\/10/);
+  assert.match(contents, /"schemaVersion": 1/);
+  assert.match(app.element('created').download, /^piano-coach-report-.*\.txt$/);
+  app.element('startPracticeButton').click();
+  assert.equal(app.element('exportTestButton').disabled, true);
+});
+
+test('diagnostics record the original frame gates and omit microphone device identifiers', () => {
+  const app = loadApp(); startPhasing(app);
+  vm.runInContext('microphoneStream={getAudioTracks:()=>[{getSettings:()=>({sampleRate:48000,autoGainControl:false,deviceId:"private-id",groupId:"private-group"})}]};var sampleIndex=0;audioData=new Uint8Array([128]);getCurrentVolume=()=>[0,20,10][sampleIndex];getSpectralFlux=()=>[0,1000,0][sampleIndex++]', app.context);
+  const firstTime = vm.runInContext('expectedEvents[0].time', app.context);
+  for (const time of [firstTime-16,firstTime,firstTime+16]) {
+    app.context.performance.now = () => time;
+    vm.runInContext('checkForPianoSound()', app.context);
+  }
+  app.element('stopPracticeButton').click();
+  const report = vm.runInContext('lastPhasingTestReport', app.context);
+  assert.equal(report.detectorFrames.length, 3);
+  assert.equal(report.detectorFrames[2].onset, true);
+  assert.equal(report.detectorFrames[2].volumeThreshold, 8);
+  assert.equal(report.detectorFrames[2].risePass, true);
+  assert.equal(report.environment.microphone.sampleRate, 48000);
+  assert.equal(report.environment.microphone.deviceId, undefined);
+  assert.equal(report.environment.microphone.groupId, undefined);
+});
+
+test('long diagnostic sessions retain the last 12000 frames in chronological order', () => {
+  const app = loadApp(); startPhasing(app);
+  vm.runInContext('phasingDiagnostics.frameCount=12500;phasingDiagnostics.frames=Array.from({length:12000},(_,i)=>({timeMs:i<500?12000+i:i}));stopPractice()', app.context);
+  const report = vm.runInContext('lastPhasingTestReport', app.context);
+  assert.equal(report.framesTruncated, true);
+  assert.equal(report.totalFramesObserved, 12500);
+  assert.equal(report.detectorFrames.length, 12000);
+  assert.equal(report.detectorFrames[0].timeMs, 500);
+  assert.equal(report.detectorFrames.at(-1).timeMs, 12499);
+});
+
+test('a few clipped reference positions are excluded instead of rejecting every valid level', () => {
+  const app = loadApp(); preparePartialReference(app,10,[]);
+  app.element('micButton').click();
+  vm.runInContext('expectedEvents.forEach((event,index)=>{event.result="On Beat";event.detectedTime=event.time;event.levelDb=-40;event.clipped=index===3;});stopPractice()', app.context);
+  assert.equal(vm.runInContext('getPhasingAnalysis().referenceReady', app.context), true);
+  assert.equal(vm.runInContext('phasingReference.levels[3]', app.context), null);
+  assert.equal(vm.runInContext('lastPhasingTestReport.notes[3].exclusionReason', app.context), 'clipped');
+});

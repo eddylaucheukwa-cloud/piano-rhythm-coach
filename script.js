@@ -87,6 +87,13 @@ const phasingHelp = document.getElementById("phasingHelp");
 let phasingReference = null;
 let phasingReferenceSession = false;
 let phasingAutoGain = false;
+const exportTestButton = document.getElementById("exportTestButton");
+const phasingMinimumCoverage = 0.7;
+const diagnosticFrameLimit = 12000;
+let phasingDiagnostics = null;
+let lastPhasingTestReport = null;
+let lastReferenceTestReport = null;
+exportTestButton.addEventListener("click", exportPhasingTest);
 
 for (const control of [bpmSlider, notesPerBeat, totalNotes]) {
   control.addEventListener("input", () => {
@@ -1506,6 +1513,21 @@ function checkForPianoSound() {
     volume > onsetThreshold &&
     now - lastOnsetTime > minimumGapMs;
 
+  // Temporary local diagnostics: record the existing decisions without changing them.
+  if (isPhasingMode && isPracticeRunning && phasingDiagnostics) {
+    phasingDiagnostics.frames[phasingDiagnostics.frameCount % diagnosticFrameLimit] = {
+      timeMs: now - practiceStartTime, rms: volume, flux, previousFlux, previousPreviousFlux,
+      threshold: dynamicFluxThreshold, minimumGapMs, timingWindowMs,
+      gapMs: lastOnsetTime ? now - lastOnsetTime : null,
+      peakTimeMs: pendingPeakTime ? pendingPeakTime - practiceStartTime : null, volumeThreshold: onsetThreshold,
+      localPeak: isLocalPeak, thresholdPass: previousFlux > dynamicFluxThreshold,
+      risePass: previousFlux > previousPreviousFlux * peakRatio,
+      volumePass: volume > onsetThreshold, gapPass: now - lastOnsetTime > minimumGapMs,
+      onset: isNewOnset
+    };
+    phasingDiagnostics.frameCount++;
+  }
+
   if (isNewOnset) {
     lastOnsetTime = pendingPeakTime || now;
 
@@ -1776,6 +1798,14 @@ window.updateTransportLamps?.();
   dynamicFluxThreshold = 0;
   phasingLevelFrames = [];
   practiceStartTime = performance.now();
+  if (isPhasingMode) {
+    phasingDiagnostics = {
+      startedAt: new Date().toISOString(), settingsKey: phasingSettingsKey(),
+      settings: { bpm, notesPerBeat: subdivision, notes: Number(totalNotes.value), sensitivity: onsetThreshold,
+        minimumGapMs, timingWindowMs, calibrationOffsetMs: calibration?.offsetMs ?? 0 },
+      frames: [], frameCount: 0
+    };
+  }
 
   if (isPlayMode) {
     expectedEvents = [];
@@ -1823,6 +1853,10 @@ stopPracticeMetronome();
 stopRecording();
   mode = "idle";
   if (isPhasingMode && phasingReferenceSession) savePhasingReference();
+  if (isPhasingMode) {
+    lastPhasingTestReport = createPhasingTestReport();
+    if (phasingReferenceSession) lastReferenceTestReport = lastPhasingTestReport;
+  }
 coachConsole.classList.toggle("test-results", isTestMode);
 coachConsole.classList.toggle("play-results", isPlayMode);
 /* Transport icon state: practice stopped */
@@ -2209,32 +2243,48 @@ function phasingTarget(index, count) {
   return count > 1 ? 1 - Math.abs(2 * index / (count - 1) - 1) : 0;
 }
 
+function requiredPhasingNotes(count) {
+  return Math.max(5, Math.ceil(count * phasingMinimumCoverage));
+}
+
+function phasingCoversPhrase(indices, count) {
+  return new Set(indices.map(index => Math.min(2, Math.floor(index * 3 / count)))).size === 3;
+}
+
 function savePhasingReference() {
-  const valid = !phasingAutoGain && expectedEvents.length >= 5 &&
-    expectedEvents.every(event => Number.isFinite(event.levelDb) && !event.clipped);
+  const levels = expectedEvents.map(event => Number.isFinite(event.levelDb) && !event.clipped ? event.levelDb : null);
+  const indices = levels.flatMap((level, index) => level === null ? [] : [index]);
+  const valid = !phasingAutoGain && expectedEvents.every(event => event.result !== null) &&
+    indices.length >= requiredPhasingNotes(levels.length) && phasingCoversPhrase(indices, levels.length);
   if (valid) {
-    phasingReference = { key: phasingSettingsKey(), levels: expectedEvents.map(event => event.levelDb) };
-    practiceStatus.textContent = "Level reference saved. Keep the same scale, tempo, touch reference and microphone position.";
+    phasingReference = { key: phasingSettingsKey(), levels };
+    practiceStatus.textContent = `Level reference saved: ${indices.length}/${levels.length}. Missing or clipped positions are excluded from SHAPE.`;
   } else {
-    practiceStatus.textContent = "Reference incomplete or distorted. Keep an even touch and record every note again.";
+    practiceStatus.textContent = `Reference incomplete: ${indices.length}/${levels.length}. Need at least ${requiredPhasingNotes(levels.length)} valid notes across the whole phrase.`;
   }
 }
 
 function getPhasingAnalysis() {
   const referenceReady = phasingReference?.key === phasingSettingsKey() && !phasingAutoGain;
-  const points = expectedEvents.map((event, index) => ({
-    index,
-    target: phasingTarget(index, expectedEvents.length),
-    level: Number.isFinite(event.levelDb) && !event.clipped
-      ? event.levelDb - (referenceReady && !phasingReferenceSession ? phasingReference.levels[index] : 0)
-      : null
-  }));
+  const referenceCount = referenceReady ? phasingReference.levels.filter(Number.isFinite).length : 0;
+  const rawCount = expectedEvents.filter(event => Number.isFinite(event.levelDb) && !event.clipped).length;
+  const points = expectedEvents.map((event, index) => {
+    const referenceLevel = referenceReady ? phasingReference.levels[index] : null;
+    const usable = Number.isFinite(event.levelDb) && !event.clipped;
+    return {
+      index, target: phasingTarget(index, expectedEvents.length),
+      level: usable && (!referenceReady || phasingReferenceSession || Number.isFinite(referenceLevel))
+        ? event.levelDb - (referenceReady && !phasingReferenceSession ? referenceLevel : 0) : null
+    };
+  });
   const measured = points.filter(point => point.level !== null);
   const low = measured.length ? Math.min(...measured.map(point => point.level)) : 0;
   const high = measured.length ? Math.max(...measured.map(point => point.level)) : 0;
   const range = high - low;
   let score = null;
-  if (referenceReady && !phasingReferenceSession && !expectedEvents.some(event => event.clipped) && measured.length >= 5 && measured.length >= expectedEvents.length * 0.8) {
+  if (referenceReady && !phasingReferenceSession && rawCount >= requiredPhasingNotes(expectedEvents.length) &&
+      measured.length >= requiredPhasingNotes(referenceCount) &&
+      phasingCoversPhrase(measured.map(point => point.index), expectedEvents.length)) {
     const meanTarget = measured.reduce((sum, point) => sum + point.target, 0) / measured.length;
     const meanLevel = measured.reduce((sum, point) => sum + point.level, 0) / measured.length;
     let covariance = 0, targetVariance = 0, levelVariance = 0;
@@ -2247,7 +2297,111 @@ function getPhasingAnalysis() {
       ? covariance / Math.sqrt(targetVariance * levelVariance) : 0;
     score = range >= 3 ? Math.round(Math.max(0, Math.min(1, correlation)) * 100) : 0;
   }
-  return { referenceReady, points, measured, low, range, score };
+  return { referenceReady, referenceCount, rawCount, points, measured, low, range, score };
+}
+
+function createPhasingTestReport() {
+  const analysis = getPhasingAnalysis();
+  const detected = expectedEvents.filter(event => event.detectedTime !== null);
+  const onBeat = expectedEvents.filter(event => event.result === "On Beat");
+  const due = expectedEvents.filter(event => event.result !== null);
+  const settings = microphoneStream?.getAudioTracks?.()?.[0]?.getSettings?.() ?? {};
+  const frames = phasingDiagnostics.frames;
+  const oldest = phasingDiagnostics.frameCount > diagnosticFrameLimit ? phasingDiagnostics.frameCount % diagnosticFrameLimit : 0;
+  const retainedFrames = [...frames.slice(oldest), ...frames.slice(0, oldest)];
+  const report = {
+    schemaVersion: 1, detector: "analyser-v1", startedAtUtc: phasingDiagnostics.startedAt,
+    endedAtUtc: new Date().toISOString(), durationMs: performance.now() - practiceStartTime,
+    session: phasingReferenceSession ? "level-reference" : "phasing-practice",
+    settingsKey: phasingDiagnostics.settingsKey, settings: { ...phasingDiagnostics.settings },
+    environment: {
+      userAgent: typeof navigator === "undefined" ? null : navigator.userAgent,
+      viewport: { width: window.innerWidth ?? null, height: window.innerHeight ?? null, pixelRatio: window.devicePixelRatio ?? null },
+      audioSampleRate: audioContext?.sampleRate ?? null, analyserFftSize: analyser?.fftSize ?? null,
+      microphone: Object.fromEntries(["sampleRate", "sampleSize", "channelCount", "autoGainControl", "echoCancellation", "noiseSuppression", "latency"]
+        .filter(key => settings[key] !== undefined).map(key => [key, settings[key]]))
+    },
+    summary: {
+      scheduledNotes: expectedEvents.length, detectedNotes: detected.length,
+      missedNotes: expectedEvents.filter(event => event.result === "Missed").length,
+      unassessedNotes: expectedEvents.length - due.length,
+      earlyNotes: expectedEvents.filter(event => event.result === "Early").length,
+      onBeatNotes: onBeat.length, lateNotes: expectedEvents.filter(event => event.result === "Late").length,
+      detectionPercent: expectedEvents.length ? Math.round(detected.length / expectedEvents.length * 100) : null,
+      timingPercent: due.length ? Math.round(onBeat.length / due.length * 100) : null,
+      shapePercent: analysis.score, dynamicsRangeDb: analysis.range,
+      detectorOnsetsInRetainedFrames: retainedFrames.filter(frame => frame.onset).length,
+      usableLevels: analysis.rawCount, pairedLevelsUsedForShape: analysis.referenceReady && !phasingReferenceSession ? analysis.measured.length : 0
+    },
+    reference: {
+      accepted: !!analysis.referenceReady, validNotes: phasingReferenceSession ? analysis.rawCount : analysis.referenceCount,
+      totalNotes: analysis.referenceReady ? phasingReference.levels.length : expectedEvents.length,
+      requiredValidNotes: requiredPhasingNotes(expectedEvents.length), minimumCoverage: phasingMinimumCoverage,
+      levelsDb: analysis.referenceReady ? [...phasingReference.levels] : null,
+      rejectionReasons: [
+        phasingAutoGain ? "automatic-mic-gain" : null,
+        phasingReferenceSession && due.length !== expectedEvents.length ? "unfinished-session" : null,
+        phasingReferenceSession && analysis.rawCount < requiredPhasingNotes(expectedEvents.length) ? "too-few-valid-levels" : null,
+        phasingReferenceSession && !phasingCoversPhrase(analysis.measured.map(point => point.index), expectedEvents.length) ? "missing-phrase-section" : null,
+        !phasingReferenceSession && !analysis.referenceReady ? "no-matching-reference" : null
+      ].filter(Boolean)
+    },
+    notes: expectedEvents.map((event, index) => {
+      const baseline = analysis.referenceReady ? phasingReference.levels[index] : null;
+      return {
+        number: event.number, expectedTimeMs: event.time - practiceStartTime,
+        detectedTimeMs: event.detectedTime === null ? null : event.detectedTime - practiceStartTime,
+        result: event.result, rawOffsetMs: event.rawOffsetMs ?? null, correctedOffsetMs: event.offsetMs ?? null,
+        levelDb: Number.isFinite(event.levelDb) ? event.levelDb : null,
+        referenceLevelDb: Number.isFinite(baseline) ? baseline : null,
+        correctedLevelDb: analysis.referenceReady && !phasingReferenceSession ? analysis.points[index].level : null,
+        target: analysis.points[index].target, clipped: !!event.clipped,
+        exclusionReason: event.result === "Missed" ? "missed" : event.result === null ? "unassessed"
+          : event.clipped ? "clipped" : !Number.isFinite(event.levelDb) ? "no-level"
+            : !phasingReferenceSession && (!analysis.referenceReady || !Number.isFinite(baseline)) ? "no-reference" : null
+      };
+    }),
+    detectorFrames: retainedFrames,
+    framesTruncated: phasingDiagnostics.frameCount > diagnosticFrameLimit,
+    totalFramesObserved: phasingDiagnostics.frameCount,
+    definitions: {
+      timingPercent: "On Beat / assessed notes; this is not detectionPercent.",
+      detectionPercent: "Detected / scheduled notes; missed notes may be detector failures or unplayed notes.",
+      levelDb: "Relative digital RMS level; not acoustic SPL or finger force.",
+      rms: "Byte-domain RMS, normalised by 128 when converting to levelDb.",
+      shape: "Uses only paired, unclipped levels from a valid reference. Gaps are not interpolated.",
+      frames: "timeMs and peakTimeMs are relative to session start; frames include count-in audio. Only the latest 12000 are retained."
+    }
+  };
+  if (!phasingReferenceSession && lastReferenceTestReport?.settingsKey === report.settingsKey) {
+    report.referenceAttempt = lastReferenceTestReport;
+  }
+  return report;
+}
+
+function exportPhasingTest() {
+  if (!lastPhasingTestReport || isPracticeRunning) return;
+  const report = lastPhasingTestReport, summary = report.summary;
+  const rows = report.notes.map(note => `${note.number}\t${note.result ?? "--"}\t${note.correctedOffsetMs?.toFixed(1) ?? "--"}\t${note.levelDb?.toFixed(2) ?? "--"}\t${note.referenceLevelDb?.toFixed(2) ?? "--"}\t${note.exclusionReason ?? "--"}`);
+  const content = [
+    "Piano Rhythm Coach — 測試診斷報告", `開始時間（UTC）：${report.startedAtUtc}`,
+    `測試：${report.session}`, `設定：BPM ${report.settings.bpm} · RHYTHM ${report.settings.notesPerBeat} · NOTES ${report.settings.notes}`,
+    `偵測：${summary.detectedNotes}/${summary.scheduledNotes}（${summary.detectionPercent}%） · 漏音：${summary.missedNotes}`,
+    `準拍 TIME：${summary.timingPercent ?? "--"}% · 強弱 SHAPE：${summary.shapePercent ?? "--"}%`,
+    `基準有效音：${report.reference.validNotes}/${report.reference.totalNotes} · 已儲存：${report.reference.accepted ? "是" : "否"}`,
+    "TIME 是準拍率，與偵測成功率不同。漏音亦可能代表沒有彈奏，單靠報告不能確定原因。",
+    "音量為相對數位音量，不是實際聲壓或按鍵力度。缺失或失真的音量不會補造。",
+    "", "逐音符明細：note\tresult\toffset(ms)\tlevel(dB)\treference(dB)\texcluded reason", ...rows,
+    "", "完整診斷 JSON（包含偵測門檻、逐幀判斷及基準錄製紀錄）：", JSON.stringify(report, null, 2)
+  ].join("\n");
+  const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `piano-coach-report-${report.startedAtUtc.replace(/[:.]/g, "-")}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function renderPhasingMode() {
@@ -2258,15 +2412,18 @@ function renderPhasingMode() {
   const timing = due.length ? Math.round(onBeat / due.length * 100) : "--";
   practiceScore.textContent = `TIME ${timing}% · SHAPE ${analysis.score ?? "--"}%`;
   phasingReferenceButton.disabled = mode !== "idle" || isPracticeRunning;
+  exportTestButton.disabled = isPracticeRunning || !lastPhasingTestReport;
   phasingReferenceButton.textContent = analysis.referenceReady ? "RESET LEVEL REFERENCE" : "SET LEVEL REFERENCE";
   phasingHelp.textContent = !microphoneStream ? "Press SET LEVEL REFERENCE to allow the mic and record an even-touch scale."
     : phasingAutoGain ? "Automatic mic level is active; loudness is a guide, not a reliable grade."
     : phasingReferenceSession ? isPracticeRunning
       ? "Play your whole scale with an even touch. Keep the mic still."
-      : analysis.referenceReady ? "Reference saved. Press START: soft → loud → soft, using the same scale."
-        : "Reference incomplete. Record all notes again with an even touch."
-    : !analysis.referenceReady ? "First set a reference: same scale, even touch, fixed mic position."
-      : "Same scale and mic position. Changing TEMPO, RHYTHM or NOTES needs a new reference.";
+      : analysis.referenceReady ? `Reference saved: ${analysis.referenceCount}/${expectedEvents.length}. Gaps skipped. Press START: soft → loud → soft.`
+        : `Reference incomplete: ${analysis.rawCount}/${expectedEvents.length}. Need ${requiredPhasingNotes(expectedEvents.length)} valid notes across the whole phrase.`
+    : !analysis.referenceReady ? "START shows raw dynamics. Set a reference for a compensated SHAPE score."
+      : analysis.referenceCount < phasingReference.levels.length
+        ? `Reference ${analysis.referenceCount}/${phasingReference.levels.length}: gaps skipped in SHAPE. Keep the same scale and mic.`
+        : "Same scale and mic position. Changing TEMPO, RHYTHM or NOTES needs a new reference.";
   drawPhasingChart(analysis);
 }
 
@@ -2354,11 +2511,13 @@ function drawPhasingChart(analysis) {
   }
   ctx.fillStyle = "#72ff9a";
   font(9);
-  const footer = phasingReferenceSession ? analysis.referenceReady && !isPracticeRunning ? "REFERENCE SAVED · PRESS START" : "REFERENCE · KEEP AN EVEN TOUCH"
-    : !analysis.referenceReady ? "MIC LEVEL · REFERENCE NEEDED"
-      : expectedEvents.some(event => event.clipped) ? "DISTORTED · REDUCE INPUT LEVEL"
-        : analysis.score === 0 && analysis.range < 3 ? "MORE SOFT / LOUD CONTRAST"
-          : analysis.score === null ? "DASHED = TARGET · DOTS = YOU" : `SHAPE ${analysis.score}% · RANGE ${analysis.range.toFixed(1)} DB`;
+  const footer = phasingReferenceSession ? analysis.referenceReady && !isPracticeRunning
+    ? `REF ${analysis.referenceCount}/${expectedEvents.length} · PRESS START`
+    : `REF ${analysis.rawCount}/${expectedEvents.length} · EVEN TOUCH`
+    : !analysis.referenceReady ? "RAW LEVEL · NO COMPENSATION"
+      : analysis.score === 0 && analysis.range < 3 ? "MORE SOFT / LOUD CONTRAST"
+        : analysis.score === null ? "NEED MORE LEVELS ACROSS PHRASE"
+          : `SHAPE ${analysis.score}% · USED ${analysis.measured.length}/${analysis.referenceCount}`;
   ctx.fillText(footer, left, contentHeight - 6);
 }
 function updatePracticeDisplay() {

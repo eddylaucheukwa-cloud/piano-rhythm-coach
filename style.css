@@ -618,6 +618,24 @@ button {
 .play-mode .step-buttons { cursor: default; }
 
 .phasing-tools { display: none; }
+.phasing-export {
+  display: none;
+  position: absolute;
+  left: 12px;
+  bottom: 4px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid #4b8f5c;
+  border-radius: 3px;
+  background: var(--screen);
+  color: var(--green);
+  font: 800 9px "Doto", "Share Tech Mono", monospace;
+  font-variation-settings: "ROND" 100;
+  cursor: pointer;
+}
+.phasing-mode .phasing-export { display: block; }
+.phasing-export:disabled { opacity: .45; cursor: default; }
+.phasing-export:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .phasing-mode .phasing-tools {
   display: grid;
   position: absolute;
