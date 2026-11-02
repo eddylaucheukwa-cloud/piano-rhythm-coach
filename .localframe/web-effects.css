@@ -23,3 +23,17 @@
   font-size: 16px !important;
 }
 /* localframe:lf_4e1a1f6bfb01db5cacf30b22:end */
+
+/* Keep the approved lighting visible while the GPU renderer starts. */
+#coachConsole {
+  isolation: isolate;
+  background-image: url("./element-effects/assets/chrome-background.png");
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Scale the whole instrument on short screens, keeping its original proportions. */
+@media (max-width: 600px) {
+  :root { --phone-dial: 196px; --phone-monitor: 168px; }
+}
