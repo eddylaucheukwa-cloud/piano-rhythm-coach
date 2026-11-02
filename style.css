@@ -81,7 +81,7 @@ button {
     position: absolute;
     inset: 0 auto 0 0;
     display: flex;
-    width: 400%;
+    width: 300%;
     transform: translate3d(var(--mode-offset, 0%), 0, 0);
     transition: transform 340ms cubic-bezier(.22, .8, .25, 1);
 }
@@ -89,7 +89,7 @@ button {
 .mode-title-track > span {
     display: flex;
     align-items: center;
-    flex: 0 0 25%;
+    flex: 0 0 33.3333333333%;
     padding: 0 10px;
     white-space: nowrap;
 }
@@ -616,44 +616,6 @@ button {
 .play-mode .tempo-knob,
 .play-mode .notes-wheel,
 .play-mode .step-buttons { cursor: default; }
-
-.phasing-tools { display: none; }
-.phasing-export {
-  display: none;
-  position: absolute;
-  left: 12px;
-  bottom: 4px;
-  height: 18px;
-  padding: 0 5px;
-  border: 1px solid #4b8f5c;
-  border-radius: 3px;
-  background: var(--screen);
-  color: var(--green);
-  font: 800 9px "Doto", "Share Tech Mono", monospace;
-  font-variation-settings: "ROND" 100;
-  cursor: pointer;
-}
-.phasing-mode .phasing-export { display: block; }
-.phasing-export:disabled { opacity: .45; cursor: default; }
-.phasing-export:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.phasing-mode .phasing-tools {
-  display: grid;
-  position: absolute;
-  inset: auto 12px 24px;
-  height: 20px;
-  align-items: center;
-}
-.phasing-tools p {
-  margin: 0;
-  color: var(--green);
-  font: 800 9px/10px "Doto", "Share Tech Mono", monospace;
-  font-variation-settings: "ROND" 100;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-.phasing-mode #practiceScore { font-size: 9px; letter-spacing: 0; }
 
 .title-lcd:focus-visible {
   outline: 3px solid #267d48;

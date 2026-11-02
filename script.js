@@ -69,7 +69,6 @@ const coachConsole = document.getElementById("coachConsole");
 const modeTitle = document.getElementById("modeTitle");
 const modeTitleTrack = document.getElementById("modeTitleTrack");
 let isTestMode = false;
-let isPhasingMode = false;
 let isPlayMode = false;
 let secretSwipeCount = 0;
 let playState = null;
@@ -81,78 +80,40 @@ const playFeedback = document.getElementById("playFeedback");
 const playNext = document.getElementById("playNext");
 let testProgressTimer = null;
 let titleSwipe = null;
-// PHASING reuses the physical microphone/calibration button.
-const phasingReferenceButton = micButton;
-const phasingHelp = document.getElementById("phasingHelp");
-let phasingReference = null;
-let phasingReferenceSession = false;
-let phasingAutoGain = false;
-const exportTestButton = document.getElementById("exportTestButton");
-const phasingMinimumCoverage = 0.7;
-const diagnosticFrameLimit = 12000;
-let phasingDiagnostics = null;
-let lastPhasingTestReport = null;
-let lastReferenceTestReport = null;
-exportTestButton.addEventListener("click", exportPhasingTest);
-
-for (const control of [bpmSlider, notesPerBeat, totalNotes]) {
-  control.addEventListener("input", () => {
-    if (isPhasingMode && mode === "idle") renderPhasingMode();
-  });
-}
 
 function setTestMode(enabled) {
   setCoachMode(enabled ? "test" : "practice");
 }
 
 function modeTitleOffset() {
-  return `${-(isPlayMode ? 3 : isPhasingMode ? 2 : isTestMode ? 1 : 0) * 25}%`;
+  return `${-(isPlayMode ? 2 : isTestMode ? 1 : 0) * 100 / 3}%`;
 }
 
 function setCoachMode(nextMode) {
   if (mode !== "idle" || isPracticeRunning) return;
-  const wasPhasingMode = isPhasingMode;
   isTestMode = nextMode === "test";
-  isPhasingMode = nextMode === "phasing";
   isPlayMode = nextMode === "play";
   secretSwipeCount = 0;
   coachConsole.classList.toggle("test-mode", isTestMode);
-  coachConsole.classList.toggle("phasing-mode", isPhasingMode);
   coachConsole.classList.toggle("play-mode", isPlayMode);
   coachConsole.classList.toggle("play-unlocked", isPlayMode);
   coachConsole.classList.remove("test-results", "play-results");
   modeTitle.style.setProperty("--mode-offset", modeTitleOffset());
-  modeTitle.setAttribute("aria-label", (isPlayMode ? "Play mode." : isPhasingMode ? "Phasing mode." : isTestMode ? "Test mode." : "Piano Rhythm Coach.") +
-    " Swipe left or press left arrow for the next mode; swipe right or press right arrow for the previous mode.");
-  startPracticeButton.setAttribute("aria-label", isPlayMode ? "Start play mode" : isPhasingMode ? "Start phasing practice" : isTestMode ? "Start test" : "Start practice");
+  modeTitle.setAttribute("aria-label", (isPlayMode ? "Play mode." : isTestMode ? "Test mode." : "Piano Rhythm Coach.") +
+    (isPlayMode ? " Swipe right or press right arrow to return to test mode."
+      : " Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode."));
+  startPracticeButton.setAttribute("aria-label", isPlayMode ? "Start play mode" : isTestMode ? "Start test" : "Start practice");
   bpmSlider.disabled = isPlayMode;
   notesPerBeat.disabled = isPlayMode;
   totalNotes.disabled = isPlayMode;
-  if (isPhasingMode) {
-    expectedEvents = [];
-    phasingReferenceSession = false;
-  }
   if (isPlayMode) {
     playState = createPlayState();
     expectedEvents = [];
     renderPlayMode();
   }
   window.syncMixer?.();
-  if (isPhasingMode) {
-    micButton.setAttribute("aria-describedby", "phasingHelp");
-    renderPhasingMode();
-  }
-  else {
-    phasingReferenceButton.disabled = false;
-    micButton.removeAttribute("aria-describedby");
-    micButton.textContent = !microphoneStream ? "ALLOW MICROPHONE"
-      : calibration ? `CAL: ${calibration.offsetMs >= 0 ? "+" : ""}${calibration.offsetMs}ms · TAP TO RE-CALIBRATE`
-        : "ADJUST LATENCY";
-    if (wasPhasingMode && !isPlayMode) drawTimingChart();
-  }
   practiceStatus.textContent = isPlayMode
     ? "Play mode: each four-beat pattern has a two-beat buffer. Every four loops adds 5 BPM."
-    : isPhasingMode ? "Phasing: build from soft to loud, then return to soft. Set a level reference for your scale."
     : isTestMode
     ? "Test mode: 4-beat count-in, then keep the rhythm without clicks."
     : "Practice mode: metronome and live timing chart.";
@@ -161,15 +122,12 @@ function setCoachMode(nextMode) {
 function switchModeBySwipe(left) {
   if (mode !== "idle" || isPracticeRunning) return;
   if (!left) {
-    if (isPlayMode) setCoachMode("phasing");
-    else if (isPhasingMode) setCoachMode("test");
+    if (isPlayMode) setCoachMode("test");
     else if (isTestMode) setCoachMode("practice");
-  } else if (isPhasingMode) {
+  } else if (isTestMode) {
     secretSwipeCount++;
     coachConsole.classList.toggle("play-unlocked", secretSwipeCount >= 2);
     if (secretSwipeCount === 3) setCoachMode("play");
-  } else if (isTestMode) {
-    setCoachMode("phasing");
   } else if (!isPlayMode) {
     setCoachMode("test");
   }
@@ -184,7 +142,7 @@ modeTitle.addEventListener("pointerdown", (event) => {
     width: rect.width, position, startedAt: performance.now()
   };
   modeTitle.classList.add("is-swiping");
-  modeTitle.style.setProperty("--mode-offset", `${-position * 25}%`);
+  modeTitle.style.setProperty("--mode-offset", `${-position * 100 / 3}%`);
   modeTitle.setPointerCapture(event.pointerId);
 });
 modeTitle.addEventListener("pointermove", (event) => {
@@ -194,10 +152,10 @@ modeTitle.addEventListener("pointermove", (event) => {
   if (Math.abs(dx) <= Math.abs(dy)) return;
   if (Math.abs(dx) >= 6) modeTitle.classList.add("is-swipe-moving");
   const position = titleSwipe.position - dx / titleSwipe.width;
-  const lastPage = isPlayMode || secretSwipeCount >= 2 ? 3 : 2;
+  const lastPage = isPlayMode || secretSwipeCount >= 2 ? 2 : 1;
   const bounded = Math.max(0, Math.min(lastPage, position));
   const resisted = bounded + (position - bounded) * 0.18;
-  modeTitle.style.setProperty("--mode-offset", `${-resisted * 25}%`);
+  modeTitle.style.setProperty("--mode-offset", `${-resisted * 100 / 3}%`);
 });
 modeTitle.addEventListener("pointerup", (event) => {
   if (!titleSwipe || event.pointerId !== titleSwipe.id) return;
@@ -263,7 +221,7 @@ let pendingPeakFlux = 0;
 let pendingPeakTime = 0;
 let fluxHistory = [];
 let dynamicFluxThreshold = 0;
-let phasingLevelFrames = [];
+
 async function startMicrophone() {
   try {
     microphoneStream = await navigator.mediaDevices.getUserMedia({
@@ -292,12 +250,6 @@ async function startMicrophone() {
     previousFrequencyData = new Uint8Array(analyser.frequencyBinCount);
 
     microphoneSource.connect(analyser);
-    phasingAutoGain = microphoneStream.getAudioTracks()[0].getSettings?.().autoGainControl === true;
-    // A calibration made with the reverted detector has a different latency.
-    if (calibration?.detectorEngine && calibration.detectorEngine !== "analyser-v1") {
-      calibration = null;
-      localStorage.removeItem("pianoRhythmCalibration");
-    }
 
     micButton.disabled = false;
 
@@ -318,7 +270,6 @@ practiceStatus.textContent =
 
 showVolume();
 checkForPianoSound();
-if (isPhasingMode) renderPhasingMode();
  } catch (error) {
   console.error(error);
 
@@ -345,20 +296,7 @@ function showVolume() {
   requestAnimationFrame(showVolume);
 }
 
-micButton.addEventListener("click", async () => {
-  if (isPhasingMode && mode === "idle") {
-    if (isPracticeRunning) return;
-    if (!microphoneStream) {
-      micButton.disabled = true;
-      await startMicrophone();
-      if (!microphoneStream || !analyser) {
-        micButton.disabled = false;
-        return;
-      }
-    }
-    startPractice(true);
-    return;
-  }
+micButton.addEventListener("click", () => {
   if (!microphoneStream) {
     startMicrophone();
     return;
@@ -868,7 +806,7 @@ function startCalibration() {
 
 mode = "calibrating";
 window.hideTempoPreview?.();
-coachConsole.classList.remove("test-mode", "test-results", "play-mode", "play-results", "phasing-mode");
+coachConsole.classList.remove("test-mode", "test-results", "play-mode", "play-results");
 
 bpmMonitor.style.color = "#72ff9a";
 bpmMonitor.style.textShadow =
@@ -1187,7 +1125,6 @@ function applyCalibration() {
 
   calibration = {
     ...pendingCalibration,
-    detectorEngine: "analyser-v1",
     savedAt: new Date().toISOString()
   };
 
@@ -1198,7 +1135,7 @@ function applyCalibration() {
 
   pendingCalibration = null;
   mode = "idle";
-  setCoachMode(isPlayMode ? "play" : isPhasingMode ? "phasing" : isTestMode ? "test" : "practice");
+  setCoachMode(isPlayMode ? "play" : isTestMode ? "test" : "practice");
 
   practiceStatus.textContent =
     `Calibration applied: ` +
@@ -1480,10 +1417,6 @@ function advancePlayMode() {
 
 function checkForPianoSound() {
   const volume = getCurrentVolume();
-  if (isPhasingMode) {
-    phasingLevelFrames.push({ volume, clipped: audioData.some(sample => sample <= 1 || sample >= 254) });
-    if (phasingLevelFrames.length > 3) phasingLevelFrames.shift();
-  }
   const flux = getSpectralFlux();
   const now = performance.now();
 
@@ -1513,35 +1446,16 @@ function checkForPianoSound() {
     volume > onsetThreshold &&
     now - lastOnsetTime > minimumGapMs;
 
-  // Temporary local diagnostics: record the existing decisions without changing them.
-  if (isPhasingMode && isPracticeRunning && phasingDiagnostics) {
-    phasingDiagnostics.frames[phasingDiagnostics.frameCount % diagnosticFrameLimit] = {
-      timeMs: now - practiceStartTime, rms: volume, flux, previousFlux, previousPreviousFlux,
-      threshold: dynamicFluxThreshold, minimumGapMs, timingWindowMs,
-      gapMs: lastOnsetTime ? now - lastOnsetTime : null,
-      peakTimeMs: pendingPeakTime ? pendingPeakTime - practiceStartTime : null, volumeThreshold: onsetThreshold,
-      localPeak: isLocalPeak, thresholdPass: previousFlux > dynamicFluxThreshold,
-      risePass: previousFlux > previousPreviousFlux * peakRatio,
-      volumePass: volume > onsetThreshold, gapPass: now - lastOnsetTime > minimumGapMs,
-      onset: isNewOnset
-    };
-    phasingDiagnostics.frameCount++;
-  }
-
   if (isNewOnset) {
     lastOnsetTime = pendingPeakTime || now;
 
     flashNoteLight(volume);
 
     if (mode === "calibrating") {
-      matchCalibrationOnset(lastOnsetTime);
-    } else if (isPracticeRunning) {
-      // Capture loudness for PHASING without changing the original onset decision.
-      matchSoundToExpectedEvent(lastOnsetTime, isPhasingMode ? {
-        levelDb: 20 * Math.log10(Math.max(1e-7, Math.max(...phasingLevelFrames.map(frame => frame.volume)) / 128)),
-        clipped: phasingLevelFrames.some(frame => frame.clipped)
-      } : null);
-    }
+  matchCalibrationOnset(lastOnsetTime);
+} else if (isPracticeRunning) {
+  matchSoundToExpectedEvent(lastOnsetTime);
+}
   }
 
   previousPreviousFlux = previousFlux;
@@ -1611,7 +1525,7 @@ function matchCalibrationOnset(soundTime) {
     `${rawOffsetMs.toFixed(0)} ms`
   );
 }
-function matchSoundToExpectedEvent(soundTime, measurement = null) {
+function matchSoundToExpectedEvent(soundTime) {
   const calibrationOffsetMs = calibration
     ? calibration.offsetMs
     : 0;
@@ -1672,10 +1586,6 @@ function matchSoundToExpectedEvent(soundTime, measurement = null) {
   nextEvent.rawOffsetMs = rawDifference;
   nextEvent.correctedOffsetMs = correctedDifference;
   nextEvent.offsetMs = correctedDifference;
-  if (measurement && Number.isFinite(measurement.levelDb)) {
-    nextEvent.levelDb = measurement.levelDb;
-    nextEvent.clipped = measurement.clipped;
-  }
 
   const onBeatRangeMs = Math.min(
     55,
@@ -1738,7 +1648,7 @@ function stopPracticeMetronome() {
   playbackButton.classList.remove("beat-flash");
 }
 
-function startPractice(referenceSession = false) {
+function startPractice() {
   if (isPracticeRunning || mode !== "idle") {
     return;
   }
@@ -1747,13 +1657,6 @@ function startPractice(referenceSession = false) {
     practiceStatus.textContent = "Please connect microphone first.";
     return;
   }
-
-  if (isPhasingMode && Number(totalNotes.value) < 5) {
-    phasingHelp.textContent = "Set NOTES to at least 5 for a soft–loud–soft phrase.";
-    return;
-  }
-  phasingReferenceSession = isPhasingMode && referenceSession;
-  if (phasingReferenceSession) phasingReference = null;
 
   if (isPlayMode) playState = createPlayState();
   const bpm = isPlayMode ? playState.bpm : Number(bpmSlider.value);
@@ -1796,16 +1699,7 @@ window.updateTransportLamps?.();
   previousFrequencyData.fill(0);
   fluxHistory = [];
   dynamicFluxThreshold = 0;
-  phasingLevelFrames = [];
   practiceStartTime = performance.now();
-  if (isPhasingMode) {
-    phasingDiagnostics = {
-      startedAt: new Date().toISOString(), settingsKey: phasingSettingsKey(),
-      settings: { bpm, notesPerBeat: subdivision, notes: Number(totalNotes.value), sensitivity: onsetThreshold,
-        minimumGapMs, timingWindowMs, calibrationOffsetMs: calibration?.offsetMs ?? 0 },
-      frames: [], frameCount: 0
-    };
-  }
 
   if (isPlayMode) {
     expectedEvents = [];
@@ -1818,7 +1712,7 @@ window.updateTransportLamps?.();
 startRecording();
 if (isPlayMode) startPlayMode();
 else startPracticeMetronome();
-if (isTestMode || isPhasingMode) {
+if (isTestMode) {
   testProgressTimer = setInterval(updatePracticeDisplay, 25);
 }
 
@@ -1835,7 +1729,6 @@ if (isTestMode || isPhasingMode) {
     `4-beat count-in, then play ${totalNotes.value} events at ` +
     `${bpm} BPM (${subdivision} notes per beat).` +
     (isTestMode ? " Keep the rhythm without clicks until the test ends." : "");
-  if (isPhasingMode) renderPhasingMode();
 
 }
 
@@ -1852,11 +1745,6 @@ testProgressTimer = null;
 stopPracticeMetronome();
 stopRecording();
   mode = "idle";
-  if (isPhasingMode && phasingReferenceSession) savePhasingReference();
-  if (isPhasingMode) {
-    lastPhasingTestReport = createPhasingTestReport();
-    if (phasingReferenceSession) lastReferenceTestReport = lastPhasingTestReport;
-  }
 coachConsole.classList.toggle("test-results", isTestMode);
 coachConsole.classList.toggle("play-results", isPlayMode);
 /* Transport icon state: practice stopped */
@@ -1916,13 +1804,8 @@ const calibrationOffsetMs = calibration
   bpmSlider.disabled = isPlayMode;
   notesPerBeat.disabled = isPlayMode;
   totalNotes.disabled = isPlayMode;
-  if (isPhasingMode) renderPhasingMode();
 }
 function drawTimingChart() {
-  if (isPhasingMode) {
-    renderPhasingMode();
-    return;
-  }
   if ((isTestMode || isPlayMode) && isPracticeRunning) return;
   const canvas = timingChart;
   const ctx = timingChartContext;
@@ -2235,291 +2118,6 @@ function drawTimingChart() {
   ctx.font = '800 10px "Doto", "Share Tech Mono", monospace';
   ctx.fillText(footerText, width / 2, height - 24);
 }
-function phasingSettingsKey() {
-  return `${bpmSlider.value}/${notesPerBeat.value}/${totalNotes.value}`;
-}
-
-function phasingTarget(index, count) {
-  return count > 1 ? 1 - Math.abs(2 * index / (count - 1) - 1) : 0;
-}
-
-function requiredPhasingNotes(count) {
-  return Math.max(5, Math.ceil(count * phasingMinimumCoverage));
-}
-
-function phasingCoversPhrase(indices, count) {
-  return new Set(indices.map(index => Math.min(2, Math.floor(index * 3 / count)))).size === 3;
-}
-
-function savePhasingReference() {
-  const levels = expectedEvents.map(event => Number.isFinite(event.levelDb) && !event.clipped ? event.levelDb : null);
-  const indices = levels.flatMap((level, index) => level === null ? [] : [index]);
-  const valid = !phasingAutoGain && expectedEvents.every(event => event.result !== null) &&
-    indices.length >= requiredPhasingNotes(levels.length) && phasingCoversPhrase(indices, levels.length);
-  if (valid) {
-    phasingReference = { key: phasingSettingsKey(), levels };
-    practiceStatus.textContent = `Level reference saved: ${indices.length}/${levels.length}. Missing or clipped positions are excluded from SHAPE.`;
-  } else {
-    practiceStatus.textContent = `Reference incomplete: ${indices.length}/${levels.length}. Need at least ${requiredPhasingNotes(levels.length)} valid notes across the whole phrase.`;
-  }
-}
-
-function getPhasingAnalysis() {
-  const referenceReady = phasingReference?.key === phasingSettingsKey() && !phasingAutoGain;
-  const referenceCount = referenceReady ? phasingReference.levels.filter(Number.isFinite).length : 0;
-  const rawCount = expectedEvents.filter(event => Number.isFinite(event.levelDb) && !event.clipped).length;
-  const points = expectedEvents.map((event, index) => {
-    const referenceLevel = referenceReady ? phasingReference.levels[index] : null;
-    const usable = Number.isFinite(event.levelDb) && !event.clipped;
-    return {
-      index, target: phasingTarget(index, expectedEvents.length),
-      level: usable && (!referenceReady || phasingReferenceSession || Number.isFinite(referenceLevel))
-        ? event.levelDb - (referenceReady && !phasingReferenceSession ? referenceLevel : 0) : null
-    };
-  });
-  const measured = points.filter(point => point.level !== null);
-  const low = measured.length ? Math.min(...measured.map(point => point.level)) : 0;
-  const high = measured.length ? Math.max(...measured.map(point => point.level)) : 0;
-  const range = high - low;
-  let score = null;
-  if (referenceReady && !phasingReferenceSession && rawCount >= requiredPhasingNotes(expectedEvents.length) &&
-      measured.length >= requiredPhasingNotes(referenceCount) &&
-      phasingCoversPhrase(measured.map(point => point.index), expectedEvents.length)) {
-    const meanTarget = measured.reduce((sum, point) => sum + point.target, 0) / measured.length;
-    const meanLevel = measured.reduce((sum, point) => sum + point.level, 0) / measured.length;
-    let covariance = 0, targetVariance = 0, levelVariance = 0;
-    for (const point of measured) {
-      covariance += (point.target - meanTarget) * (point.level - meanLevel);
-      targetVariance += (point.target - meanTarget) ** 2;
-      levelVariance += (point.level - meanLevel) ** 2;
-    }
-    const correlation = targetVariance * levelVariance > 0
-      ? covariance / Math.sqrt(targetVariance * levelVariance) : 0;
-    score = range >= 3 ? Math.round(Math.max(0, Math.min(1, correlation)) * 100) : 0;
-  }
-  return { referenceReady, referenceCount, rawCount, points, measured, low, range, score };
-}
-
-function createPhasingTestReport() {
-  const analysis = getPhasingAnalysis();
-  const detected = expectedEvents.filter(event => event.detectedTime !== null);
-  const onBeat = expectedEvents.filter(event => event.result === "On Beat");
-  const due = expectedEvents.filter(event => event.result !== null);
-  const settings = microphoneStream?.getAudioTracks?.()?.[0]?.getSettings?.() ?? {};
-  const frames = phasingDiagnostics.frames;
-  const oldest = phasingDiagnostics.frameCount > diagnosticFrameLimit ? phasingDiagnostics.frameCount % diagnosticFrameLimit : 0;
-  const retainedFrames = [...frames.slice(oldest), ...frames.slice(0, oldest)];
-  const report = {
-    schemaVersion: 1, detector: "analyser-v1", startedAtUtc: phasingDiagnostics.startedAt,
-    endedAtUtc: new Date().toISOString(), durationMs: performance.now() - practiceStartTime,
-    session: phasingReferenceSession ? "level-reference" : "phasing-practice",
-    settingsKey: phasingDiagnostics.settingsKey, settings: { ...phasingDiagnostics.settings },
-    environment: {
-      userAgent: typeof navigator === "undefined" ? null : navigator.userAgent,
-      viewport: { width: window.innerWidth ?? null, height: window.innerHeight ?? null, pixelRatio: window.devicePixelRatio ?? null },
-      audioSampleRate: audioContext?.sampleRate ?? null, analyserFftSize: analyser?.fftSize ?? null,
-      microphone: Object.fromEntries(["sampleRate", "sampleSize", "channelCount", "autoGainControl", "echoCancellation", "noiseSuppression", "latency"]
-        .filter(key => settings[key] !== undefined).map(key => [key, settings[key]]))
-    },
-    summary: {
-      scheduledNotes: expectedEvents.length, detectedNotes: detected.length,
-      missedNotes: expectedEvents.filter(event => event.result === "Missed").length,
-      unassessedNotes: expectedEvents.length - due.length,
-      earlyNotes: expectedEvents.filter(event => event.result === "Early").length,
-      onBeatNotes: onBeat.length, lateNotes: expectedEvents.filter(event => event.result === "Late").length,
-      detectionPercent: expectedEvents.length ? Math.round(detected.length / expectedEvents.length * 100) : null,
-      timingPercent: due.length ? Math.round(onBeat.length / due.length * 100) : null,
-      shapePercent: analysis.score, dynamicsRangeDb: analysis.range,
-      detectorOnsetsInRetainedFrames: retainedFrames.filter(frame => frame.onset).length,
-      usableLevels: analysis.rawCount, pairedLevelsUsedForShape: analysis.referenceReady && !phasingReferenceSession ? analysis.measured.length : 0
-    },
-    reference: {
-      accepted: !!analysis.referenceReady, validNotes: phasingReferenceSession ? analysis.rawCount : analysis.referenceCount,
-      totalNotes: analysis.referenceReady ? phasingReference.levels.length : expectedEvents.length,
-      requiredValidNotes: requiredPhasingNotes(expectedEvents.length), minimumCoverage: phasingMinimumCoverage,
-      levelsDb: analysis.referenceReady ? [...phasingReference.levels] : null,
-      rejectionReasons: [
-        phasingAutoGain ? "automatic-mic-gain" : null,
-        phasingReferenceSession && due.length !== expectedEvents.length ? "unfinished-session" : null,
-        phasingReferenceSession && analysis.rawCount < requiredPhasingNotes(expectedEvents.length) ? "too-few-valid-levels" : null,
-        phasingReferenceSession && !phasingCoversPhrase(analysis.measured.map(point => point.index), expectedEvents.length) ? "missing-phrase-section" : null,
-        !phasingReferenceSession && !analysis.referenceReady ? "no-matching-reference" : null
-      ].filter(Boolean)
-    },
-    notes: expectedEvents.map((event, index) => {
-      const baseline = analysis.referenceReady ? phasingReference.levels[index] : null;
-      return {
-        number: event.number, expectedTimeMs: event.time - practiceStartTime,
-        detectedTimeMs: event.detectedTime === null ? null : event.detectedTime - practiceStartTime,
-        result: event.result, rawOffsetMs: event.rawOffsetMs ?? null, correctedOffsetMs: event.offsetMs ?? null,
-        levelDb: Number.isFinite(event.levelDb) ? event.levelDb : null,
-        referenceLevelDb: Number.isFinite(baseline) ? baseline : null,
-        correctedLevelDb: analysis.referenceReady && !phasingReferenceSession ? analysis.points[index].level : null,
-        target: analysis.points[index].target, clipped: !!event.clipped,
-        exclusionReason: event.result === "Missed" ? "missed" : event.result === null ? "unassessed"
-          : event.clipped ? "clipped" : !Number.isFinite(event.levelDb) ? "no-level"
-            : !phasingReferenceSession && (!analysis.referenceReady || !Number.isFinite(baseline)) ? "no-reference" : null
-      };
-    }),
-    detectorFrames: retainedFrames,
-    framesTruncated: phasingDiagnostics.frameCount > diagnosticFrameLimit,
-    totalFramesObserved: phasingDiagnostics.frameCount,
-    definitions: {
-      timingPercent: "On Beat / assessed notes; this is not detectionPercent.",
-      detectionPercent: "Detected / scheduled notes; missed notes may be detector failures or unplayed notes.",
-      levelDb: "Relative digital RMS level; not acoustic SPL or finger force.",
-      rms: "Byte-domain RMS, normalised by 128 when converting to levelDb.",
-      shape: "Uses only paired, unclipped levels from a valid reference. Gaps are not interpolated.",
-      frames: "timeMs and peakTimeMs are relative to session start; frames include count-in audio. Only the latest 12000 are retained."
-    }
-  };
-  if (!phasingReferenceSession && lastReferenceTestReport?.settingsKey === report.settingsKey) {
-    report.referenceAttempt = lastReferenceTestReport;
-  }
-  return report;
-}
-
-function exportPhasingTest() {
-  if (!lastPhasingTestReport || isPracticeRunning) return;
-  const report = lastPhasingTestReport, summary = report.summary;
-  const rows = report.notes.map(note => `${note.number}\t${note.result ?? "--"}\t${note.correctedOffsetMs?.toFixed(1) ?? "--"}\t${note.levelDb?.toFixed(2) ?? "--"}\t${note.referenceLevelDb?.toFixed(2) ?? "--"}\t${note.exclusionReason ?? "--"}`);
-  const content = [
-    "Piano Rhythm Coach — 測試診斷報告", `開始時間（UTC）：${report.startedAtUtc}`,
-    `測試：${report.session}`, `設定：BPM ${report.settings.bpm} · RHYTHM ${report.settings.notesPerBeat} · NOTES ${report.settings.notes}`,
-    `偵測：${summary.detectedNotes}/${summary.scheduledNotes}（${summary.detectionPercent}%） · 漏音：${summary.missedNotes}`,
-    `準拍 TIME：${summary.timingPercent ?? "--"}% · 強弱 SHAPE：${summary.shapePercent ?? "--"}%`,
-    `基準有效音：${report.reference.validNotes}/${report.reference.totalNotes} · 已儲存：${report.reference.accepted ? "是" : "否"}`,
-    "TIME 是準拍率，與偵測成功率不同。漏音亦可能代表沒有彈奏，單靠報告不能確定原因。",
-    "音量為相對數位音量，不是實際聲壓或按鍵力度。缺失或失真的音量不會補造。",
-    "", "逐音符明細：note\tresult\toffset(ms)\tlevel(dB)\treference(dB)\texcluded reason", ...rows,
-    "", "完整診斷 JSON（包含偵測門檻、逐幀判斷及基準錄製紀錄）：", JSON.stringify(report, null, 2)
-  ].join("\n");
-  const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `piano-coach-report-${report.startedAtUtc.replace(/[:.]/g, "-")}.txt`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function renderPhasingMode() {
-  if (!isPhasingMode || mode === "calibrating" || mode === "calibration-result") return;
-  const analysis = getPhasingAnalysis();
-  const due = expectedEvents.filter(event => event.result !== null);
-  const onBeat = due.filter(event => event.result === "On Beat").length;
-  const timing = due.length ? Math.round(onBeat / due.length * 100) : "--";
-  practiceScore.textContent = `TIME ${timing}% · SHAPE ${analysis.score ?? "--"}%`;
-  phasingReferenceButton.disabled = mode !== "idle" || isPracticeRunning;
-  exportTestButton.disabled = isPracticeRunning || !lastPhasingTestReport;
-  phasingReferenceButton.textContent = analysis.referenceReady ? "RESET LEVEL REFERENCE" : "SET LEVEL REFERENCE";
-  phasingHelp.textContent = !microphoneStream ? "Press SET LEVEL REFERENCE to allow the mic and record an even-touch scale."
-    : phasingAutoGain ? "Automatic mic level is active; loudness is a guide, not a reliable grade."
-    : phasingReferenceSession ? isPracticeRunning
-      ? "Play your whole scale with an even touch. Keep the mic still."
-      : analysis.referenceReady ? `Reference saved: ${analysis.referenceCount}/${expectedEvents.length}. Gaps skipped. Press START: soft → loud → soft.`
-        : `Reference incomplete: ${analysis.rawCount}/${expectedEvents.length}. Need ${requiredPhasingNotes(expectedEvents.length)} valid notes across the whole phrase.`
-    : !analysis.referenceReady ? "START shows raw dynamics. Set a reference for a compensated SHAPE score."
-      : analysis.referenceCount < phasingReference.levels.length
-        ? `Reference ${analysis.referenceCount}/${phasingReference.levels.length}: gaps skipped in SHAPE. Keep the same scale and mic.`
-        : "Same scale and mic position. Changing TEMPO, RHYTHM or NOTES needs a new reference.";
-  drawPhasingChart(analysis);
-}
-
-function drawPhasingChart(analysis) {
-  const ctx = timingChartContext;
-  const width = timingChart.width / chartResolution, height = timingChart.height / chartResolution;
-  ctx.clearRect(0, 0, width, height);
-  // Reserve physical screen space for the reference controls without shrinking text.
-  const contentHeight = height * (1 - 52 / (timingChart.clientHeight || 178));
-  const left = 40, right = width - 16, top = 26, bottom = contentHeight * 0.48;
-  const count = expectedEvents.length || Number(totalNotes.value);
-  const x = index => left + index / Math.max(1, count - 1) * (right - left);
-  const y = value => bottom - value * (bottom - top);
-  const font = size => { ctx.font = `800 ${size}px "Doto", "Share Tech Mono", monospace`; };
-  ctx.textBaseline = "middle";
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#72ff9a";
-  font(11);
-  ctx.fillText("DYNAMICS", left, 12);
-  const next = expectedEvents.find(event => event.result === null);
-  const countInEnd = expectedEvents[0]?.time ?? Infinity;
-  const stage = phasingReferenceSession ? "EVEN TOUCH"
-    : isPracticeRunning && performance.now() < countInEnd ? "4-BEAT COUNT-IN"
-      : next ? `${next.number}/${count} · ${next.number <= (count + 1) / 2 ? "BUILD" : "RELEASE"}`
-        : expectedEvents.length ? "PHRASE REVIEW" : "SOFT > LOUD > SOFT";
-  ctx.textAlign = "right";
-  font(10);
-  ctx.fillText(stage, right, 12);
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#4b8f5c";
-  font(10);
-  ctx.fillText("LOUD", 2, top);
-  ctx.fillText("SOFT", 2, bottom);
-  ctx.strokeStyle = "#4b8f5c";
-  ctx.lineWidth = 1;
-  ctx.setLineDash([2, 4]);
-  ctx.beginPath();
-  for (let index = 0; index < count; index++) {
-    const target = phasingReferenceSession ? 0.5 : phasingTarget(index, count);
-    if (index === 0) ctx.moveTo(x(index), y(target));
-    else ctx.lineTo(x(index), y(target));
-  }
-  ctx.stroke();
-  ctx.setLineDash([]);
-  let previous = null;
-  for (const point of analysis.points) {
-    if (point.level === null) { previous = null; continue; }
-    const value = analysis.range > 0.01 ? (point.level - analysis.low) / analysis.range : 0.5;
-    const difference = Math.abs(value - point.target);
-    const color = analysis.score === null || phasingReferenceSession ? "#a4c7aa"
-      : difference > 0.3 ? "#f54444" : difference > 0.15 ? "#f6c453" : "#72ff9a";
-    if (previous) {
-      ctx.strokeStyle = color;
-      ctx.beginPath(); ctx.moveTo(previous.x, previous.y); ctx.lineTo(x(point.index), y(value)); ctx.stroke();
-    }
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(x(point.index), y(value), 2.5, 0, Math.PI * 2); ctx.fill();
-    previous = { x: x(point.index), y: y(value) };
-  }
-  const timingCenter = contentHeight * 0.8;
-  ctx.fillStyle = "#72ff9a";
-  ctx.textAlign = "left";
-  font(10);
-  ctx.fillText("TIMING", left, contentHeight * 0.62);
-  const latest = [...expectedEvents].reverse().find(event => event.result !== null);
-  ctx.textAlign = "right";
-  const timingText = !latest ? "EARLY / ON / LATE" : latest.result === "Missed" ? "MISSED"
-    : `${latest.result.toUpperCase()} ${latest.offsetMs >= 0 ? "+" : ""}${Math.round(latest.offsetMs)} MS`;
-  ctx.fillText(timingText, right, contentHeight * 0.62);
-  ctx.strokeStyle = "#4b8f5c";
-  ctx.setLineDash([2, 4]);
-  ctx.beginPath(); ctx.moveTo(left, timingCenter); ctx.lineTo(right, timingCenter); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#4b8f5c";
-  font(10);
-  ctx.fillText("EARLY", 2, timingCenter - 10);
-  ctx.fillText("LATE", 2, timingCenter + 10);
-  for (let index = 0; index < expectedEvents.length; index++) {
-    const event = expectedEvents[index];
-    if (!event.result) continue;
-    ctx.fillStyle = event.result === "Missed" ? "#f54444" : event.result === "On Beat" ? "#72ff9a" : "#f6c453";
-    const offset = event.offsetMs === null ? 0 : event.offsetMs / timingWindowMs;
-    ctx.beginPath(); ctx.arc(x(index), timingCenter + Math.max(-1, Math.min(1, offset)) * 10, 2.5, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.fillStyle = "#72ff9a";
-  font(9);
-  const footer = phasingReferenceSession ? analysis.referenceReady && !isPracticeRunning
-    ? `REF ${analysis.referenceCount}/${expectedEvents.length} · PRESS START`
-    : `REF ${analysis.rawCount}/${expectedEvents.length} · EVEN TOUCH`
-    : !analysis.referenceReady ? "RAW LEVEL · NO COMPENSATION"
-      : analysis.score === 0 && analysis.range < 3 ? "MORE SOFT / LOUD CONTRAST"
-        : analysis.score === null ? "NEED MORE LEVELS ACROSS PHRASE"
-          : `SHAPE ${analysis.score}% · USED ${analysis.measured.length}/${analysis.referenceCount}`;
-  ctx.fillText(footer, left, contentHeight - 6);
-}
 function updatePracticeDisplay() {
   const now = performance.now();
   const toleranceMs = timingWindowMs;
@@ -2565,12 +2163,6 @@ function updatePracticeDisplay() {
     playState.detectedNotes = matchedEvents.length;
     playState.latestEvent = dueEvents[dueEvents.length - 1] || null;
     renderPlayMode();
-    return;
-  }
-
-  if (isPhasingMode) {
-    renderPhasingMode();
-    if (isPracticeRunning && expectedEvents.length > 0 && dueEvents.length === expectedEvents.length) stopPractice();
     return;
   }
 
