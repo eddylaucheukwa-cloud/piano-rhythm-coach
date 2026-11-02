@@ -6,13 +6,13 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Piano Rhythm Coach</title>
     <link rel="stylesheet" href="style.css">
-</head>
+<script type="module" src="./.localframe/element-effects/bootstrap.js"></script><link rel="stylesheet" href="./.localframe/web-effects.css"></head>
 
 <body>
-    <main id="coachConsole" class="console">
+    <main data-localframe-id="lf_4929bf90908623f53a164276" id="coachConsole" class="console">
         <header id="modeTitle" class="title-lcd" tabindex="0" aria-label="Piano Rhythm Coach. Swipe left or press left arrow for test mode; swipe right or press right arrow for practice mode." title="Swipe left: Test mode · Swipe right: Practice mode">
             <div id="modeTitleTrack" class="mode-title-track" aria-hidden="true">
-                <span>PIANO RHYTHM COACH<i class="mode-swipe-hint">←</i></span><span>TEST MODE</span><span>PHASING MODE</span><span class="play-title">PLAY MODE</span>
+                <span>PIANO RHYTHM COACH<i data-localframe-id="lf_0dd48f498824588aebd376fb" class="mode-swipe-hint">←</i><style>header:has([data-localframe-id="lf_0dd48f498824588aebd376fb"]) { box-shadow: inset 0 2px 3px rgba(26,34,30,.42), inset 2px 0 2px rgba(55,65,58,.24), inset 0 -2px 2px rgba(255,255,248,.85), inset -1px 0 1px rgba(255,255,248,.65), 0 1px 0 rgba(255,255,248,.65); outline: 1px solid rgba(86,99,88,.3); outline-offset: -1px; }</style></span><span>TEST MODE</span><span>PHASING MODE</span><span class="play-title">PLAY MODE</span>
             </div>
         </header>
         <section class="monitor-label"><span>MONITOR</span><span id="practiceScore">ACCURACY: --</span><i id="noteLight"
@@ -27,7 +27,7 @@
             <p id="playFeedback">EACH DIGIT = NOTES IN ONE BEAT</p>
             <p id="playNext">NEXT 1234</p>
         </div>
-        <output id="bpmMonitor" class="bpm-monitor">BPM 060</output>
+        <output data-localframe-id="lf_108b9566b302cb1635968668" id="bpmMonitor" class="bpm-monitor" style="box-shadow: none; outline: none;">BPM 060</output>
         <button id="exportTestButton" class="phasing-export" type="button" disabled aria-label="Download detailed phasing test report">EXPORT TEST</button>
         <section class="phasing-tools" aria-label="Scale loudness reference">
             <p id="phasingHelp" aria-live="polite">Play the same scale with an even touch first.</p>
@@ -39,7 +39,7 @@
                 <div class="volume-meter" aria-label="Detected volume">
                     <div id="volumeBar"></div>
                 </div>
-                <div
+                <div data-localframe-id="lf_e527b848440ee9f41cce48e1"
                 id="tempoKnob"
                 class="tempo-knob"
                 role="slider"
@@ -48,55 +48,61 @@
                 aria-valuemin="40"
                 aria-valuemax="180"
                 aria-valuenow="60"
+                style="background: radial-gradient(circle at 35% 25%, rgba(255,255,255,.38), transparent 65%), conic-gradient(from 25deg, #d4d9d6, #f0f2ed 45deg, #b8c0bb 100deg, #e2e6df 155deg, #bdc5bf 210deg, #edf0e9 275deg, #d4d9d6); border: 1px solid #9da79f; border-radius: 50%; box-shadow: inset 0 1px 2px rgba(255,255,255,.95), inset 0 -2px 3px rgba(49,58,56,.22), 0 3px 0 #919b93, 0 6px 8px rgba(24,30,29,.25);"
                 >
                 <i id="knobOrbit">
-                    <i id="knobNotch"></i>
+                    <i id="knobNotch" style="background: radial-gradient(circle at 65% 75%, #e9eeea, #a8b0ac 65%, #858e88); box-shadow: inset 1px 2px 3px rgba(39,49,43,.35), 0 1px 1px rgba(255,255,255,.9);"></i>
                 </i>
                 </div>
             </div>
-            <div class="sense-zone">
-                <p>SENSITIVITY</p>
-                <div class="fader"><button id="sensitivityHandle" type="button"
-                        aria-label="Sensitivity slider"></button></div>
+            <div data-localframe-id="lf_dd088a591a56b94e1ca9da57" class="sense-zone">
+                <p data-localframe-id="lf_032ae51b9d78f77715643f6b">SENSITIVITY</p>
+                <div data-localframe-id="lf_4e1a1f6bfb01db5cacf30b22" class="fader" style="width: 10px; border-radius: 6px; background: linear-gradient(90deg, #171d19, #343c35 35%, #29312b 70%, #171d19); box-shadow: inset 1px 1px 3px rgba(0,0,0,.65), 1px 0 1px rgba(255,255,248,.85), -1px 0 1px rgba(70,80,69,.4);"><button data-localframe-id="lf_ac16a594679cba4c0e93a998" id="sensitivityHandle" type="button"
+                        aria-label="Sensitivity slider" style="left: 50%; transform: translateX(-50%); width: 28px; height: 58px; padding: 0; box-sizing: border-box; border-radius: 2px; background: linear-gradient(180deg, #fafcf7 0%, #f0f3ed 11%, #dce1d8 13%, transparent 15%, transparent 85%, #eef1e9 87%, #c5ccc1 96%, #a8b1a3 100%), linear-gradient(180deg, transparent 47%, #555e53 48%, #343d33 51%, #737d70 52%, #f9fcf4 54%, transparent 55%), repeating-linear-gradient(180deg, #e8ede3 0px, #e8ede3 5px, #b7bfb1 6px, #919c8b 7px, #f8fcf2 8px); border: 1px solid #b0b9a9; border-top-color: #fbfff7; border-right-color: #8e9988; border-bottom-color: #929e8c; box-shadow: inset 1px 0 1px rgba(255,255,250,.85), inset -2px 0 1px rgba(80,94,72,.18), inset 0 1px 1px #fff, inset 0 -2px 2px rgba(79,94,71,.22), 2px 1px 0 #a1ab9b, 4px 4px 3px rgba(30,39,27,.3), 7px 7px 7px rgba(30,39,27,.18); cursor: ns-resize; touch-action: none;"></button></div>
             </div>
         </section>
         <section class="readout-row">
             <div class="readout rhythm">
                 <p>RHYTHM</p><output id="rhythmValue"><span>02</span></output>
-                <div class="step-buttons"><button id="rhythmUp" type="button"
-                        aria-label="Increase rhythm">+</button><button id="rhythmDown" type="button"
-                        aria-label="Decrease rhythm">−</button></div>
+                <div class="step-buttons"><button data-localframe-id="lf_c8688741b47f85f357cf896d" id="rhythmUp" type="button"
+                        aria-label="Increase rhythm" style="background: repeating-linear-gradient(0deg, rgba(255,255,255,.1) 0px 1px, transparent 1px 3px), linear-gradient(160deg, #f3f5ef, #c7cdc6 45%, #e2e6dd 52%, #a5afa3); border: 1px solid #8e998b; box-shadow: inset 0 1px 1px #fff, inset 0 -1px 2px rgba(44,56,42,.35), 0 2px 2px rgba(26,34,24,.35); text-shadow: 0 1px 0 rgba(255,255,255,.8);">+</button><button data-localframe-id="lf_fccb9fd611535f1f92b22eaf" id="rhythmDown" type="button"
+                        aria-label="Decrease rhythm" style="background: repeating-linear-gradient(0deg, rgba(255,255,255,.1) 0px 1px, transparent 1px 3px), linear-gradient(160deg, #f3f5ef, #c7cdc6 45%, #e2e6dd 52%, #a5afa3); border: 1px solid #8e998b; box-shadow: inset 0 1px 1px #fff, inset 0 -1px 2px rgba(44,56,42,.35), 0 2px 2px rgba(26,34,24,.35); text-shadow: 0 1px 0 rgba(255,255,255,.8);">−</button></div>
             </div>
             <div class="readout notes">
-                <p>NOTES</p><output id="eventValue"><span>15</span></output><button id="notesWheel" class="notes-wheel" type="button"
-                    aria-label="Notes wheel; swipe up to increase and down to decrease"><span class="notes-wheel-face" aria-hidden="true"></span></button>
+                <p>NOTES</p><output id="eventValue"><span>15</span></output><button data-localframe-id="lf_bffd58f75b574bcfcae82004" id="notesWheel" class="notes-wheel" type="button"
+                    aria-label="Notes wheel; swipe up to increase and down to decrease" style="overflow: hidden; touch-action: none; cursor: ns-resize;"
+                    onwheel="const face = this.querySelector('.notes-wheel-face'); const start = this._visualOffset || 0; const end = start - Math.sign(event.deltaY) * 18; this._visualOffset = end; if (this._wheelAnimation) this._wheelAnimation.cancel(); this._wheelAnimation = face.animate([{backgroundPosition: '0 ' + start + 'px'}, {backgroundPosition: '0 ' + end + 'px'}], {duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 240, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards'});"
+                    onpointerdown="this._visualDragY = event.clientY;"
+                    onpointermove="if (this._visualDragY == null || !event.buttons) return; const delta = event.clientY - this._visualDragY; this._visualDragY = event.clientY; const face = this.querySelector('.notes-wheel-face'); const start = this._visualOffset || 0; const end = start + delta; this._visualOffset = end; if (this._wheelAnimation) this._wheelAnimation.cancel(); this._wheelAnimation = face.animate([{backgroundPosition: '0 ' + start + 'px'}, {backgroundPosition: '0 ' + end + 'px'}], {duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 70, easing: 'ease-out', fill: 'forwards'});"
+                    onpointerup="this._visualDragY = null;" onpointercancel="this._visualDragY = null;" onpointerleave="this._visualDragY = null;"
+                    onkeydown="if (!['ArrowUp', 'ArrowDown', 'Enter', ' '].includes(event.key)) return; const face = this.querySelector('.notes-wheel-face'); const start = this._visualOffset || 0; const end = start + (event.key === 'ArrowDown' ? 18 : -18); this._visualOffset = end; if (this._wheelAnimation) this._wheelAnimation.cancel(); this._wheelAnimation = face.animate([{backgroundPosition: '0 ' + start + 'px'}, {backgroundPosition: '0 ' + end + 'px'}], {duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 240, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards'});"><span class="notes-wheel-face" aria-hidden="true"></span></button>
             </div>
         </section>
         <section class="transport">
             <div>
-                <p>PLAYBACK</p><button id="playbackButton"
+                <p>PLAYBACK</p><button data-localframe-id="lf_8d9e46203aa47623a2cc19bb" id="playbackButton"
         class="hardware-key playback-key"
         type="button"
-        aria-label="Play latest recording"><i class="playback-icon"></i></button>
+        aria-label="Play latest recording" style="background: linear-gradient(155deg, #fafbf6, #d9ddd7 40%, #f0f2eb 52%, #b8bfb7); border: 1px solid #b0b8ae; box-shadow: inset 0 2px 1px rgba(255,255,255,.95), inset 1px 0 1px rgba(255,255,255,.7), inset 0 -2px 2px rgba(60,70,56,.2), 0 5px 0 #828a80, 1px 7px 5px rgba(25,32,24,.28);"><i data-localframe-id="lf_edc0a58235cae5959fd7197d" class="playback-icon"></i></button>
             </div>
             <div>
-                <p id="startLabel">START</p><button id="startPracticeButton"
+                <p id="startLabel">START</p><button data-localframe-id="lf_4ec578491ac84ca620a6195f" id="startPracticeButton"
         class="hardware-key start-key"
         type="button"
-        aria-label="Start practice"><i></i></button>
+        aria-label="Start practice" style="background: linear-gradient(155deg, #fafbf6, #d9ddd7 40%, #f0f2eb 52%, #b8bfb7); border: 1px solid #b0b8ae; box-shadow: inset 0 2px 1px rgba(255,255,255,.95), inset 1px 0 1px rgba(255,255,255,.7), inset 0 -2px 2px rgba(60,70,56,.2), 0 5px 0 #828a80, 1px 7px 5px rgba(25,32,24,.28);"><i data-localframe-id="lf_1050a31af564c04708ee7148"></i></button>
             </div>
             <div>
-                <p id="stopLabel">STOP</p><button id="stopPracticeButton"
+                <p id="stopLabel">STOP</p><button data-localframe-id="lf_29ad26fbee3bd5c37564e0bd" id="stopPracticeButton"
         class="hardware-key stop-key"
         type="button"
-        aria-label="Stop practice"><i></i></button>
+        aria-label="Stop practice" style="background: linear-gradient(155deg, #fafbf6, #d9ddd7 40%, #f0f2eb 52%, #b8bfb7); border: 1px solid #b0b8ae; box-shadow: inset 0 2px 1px rgba(255,255,255,.95), inset 1px 0 1px rgba(255,255,255,.7), inset 0 -2px 2px rgba(60,70,56,.2), 0 5px 0 #828a80, 1px 7px 5px rgba(25,32,24,.28);"><i data-localframe-id="lf_ca80cf246cec6b6ff98b91a3"></i></button>
             </div>
         </section>
-        <button id="micButton" class="hardware-key mic-key" type="button">ALLOW MICROPHONE</button>
+        <button data-localframe-id="lf_65792e8d2218b8e0d2175f16" id="micButton" class="hardware-key mic-key" type="button" style="background: linear-gradient(160deg, #f8faf2, #cbd2c6 43%, #e8ede1 55%, #afb9a8); border: 1px solid #a0ad98; box-shadow: inset 0 1px 1px #fff, inset 0 -1px 2px rgba(45,60,38,.25), 0 4px 0 #7c8876, 1px 6px 4px rgba(25,32,24,.25); text-shadow: 0 1px 0 rgba(255,255,255,.75);">ALLOW MICROPHONE</button>
         <p id="micStatus" class="sr">Microphone not connected</p>
         <p id="practiceStatus" class="status">Connect microphone first</p>
         <div id="practiceResults" class="results"></div>
-        <div class="legacy"><input id="bpm" type="range" min="40" max="180" value="60"><span id="bpmValue"></span><input
+        <div data-localframe-id="lf_8cb84502d4c24a6b7e075c5b" class="legacy"><input id="bpm" type="range" min="40" max="180" value="60"><span id="bpmValue"></span><input
                 id="onsetThresholdSlider" type="range" min="1" max="30" step="0.5" value="8"><output
                 id="onsetThresholdValue">8.0</output><select id="notesPerBeat">
                 <option value="1">1</option>
